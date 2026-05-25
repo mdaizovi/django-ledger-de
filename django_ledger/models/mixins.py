@@ -28,6 +28,7 @@ from django.utils.encoding import force_str
 from django.utils.translation import gettext_lazy as _
 from markdown import markdown
 
+from django_ledger.regional.dispatch import dispatch_adjust_posting
 from django_ledger.io import (
     ASSET_CA_CASH,
     LIABILITY_CL_ACC_PAYABLE,
@@ -879,6 +880,9 @@ class AccrualMixIn(models.Model):
 
                 # validates all txs as a whole (for safety)...
                 txs = [tx for _, tx in txs_list]
+                check_tx_balance(tx_data=txs, perform_correction=True)
+
+                txs = dispatch_adjust_posting(self, txs)
                 check_tx_balance(tx_data=txs, perform_correction=True)
                 TransactionModel.objects.bulk_create(txs)
 
