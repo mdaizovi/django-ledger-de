@@ -116,3 +116,6 @@ oauth_codes.json
 http-client.private.env.json
 docs/source/README.md
 assets/.yarn
+
+django_ledger/document_inbox/
+django_ledger/supporting_documents/
