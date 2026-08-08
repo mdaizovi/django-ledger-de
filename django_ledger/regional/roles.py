@@ -38,6 +38,10 @@ def register_extra_roles(
         ('EXPENSE', expense_roles, 2, 5),
     ]
 
+    def _append_role_choices(choices: list, index: int, items: List[Tuple[str, str]]) -> None:
+        heading, role_choices = choices[index]
+        choices[index] = (heading, role_choices + tuple(items))
+
     for category, role_items, choice_index, form_choice_index in category_map:
         new_roles: List[Tuple[str, str]] = [(r, _(label)) for r, label in role_items]
         if not new_roles:
@@ -51,9 +55,25 @@ def register_extra_roles(
             roles_module.ACCOUNT_LIST_ROLE_ORDER.append(role_id)
             roles_module.ACCOUNT_LIST_ROLE_VERBOSE[role_id] = label
 
-        roles_module.ACCOUNT_ROLE_CHOICES[choice_index][1].extend(new_roles)
+        _append_role_choices(roles_module.ACCOUNT_ROLE_CHOICES, choice_index, new_roles)
         if form_choice_index < len(roles_module.ACCOUNT_ROLE_CHOICES_FOR_FORMS):
-            roles_module.ACCOUNT_ROLE_CHOICES_FOR_FORMS[form_choice_index][1].extend(new_roles)
+            _append_role_choices(
+                roles_module.ACCOUNT_ROLE_CHOICES_FOR_FORMS,
+                form_choice_index,
+                new_roles,
+            )
+
+        if choice_index == 0:
+            roles_module.ROLES_ORDER_ASSETS.extend(role_id for role_id, _ in new_roles)
+        elif choice_index == 1:
+            roles_module.ROLES_ORDER_LIABILITIES.extend(role_id for role_id, _ in new_roles)
+        elif choice_index == 2:
+            roles_module.ROLES_ORDER_CAPITAL.extend(role_id for role_id, _ in new_roles)
+        roles_module.ROLES_ORDER_ALL = (
+            roles_module.ROLES_ORDER_ASSETS
+            + roles_module.ROLES_ORDER_LIABILITIES
+            + roles_module.ROLES_ORDER_CAPITAL
+        )
 
     if group_memberships:
         for group_name, role_ids in group_memberships.items():

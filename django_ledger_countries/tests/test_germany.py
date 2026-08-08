@@ -33,6 +33,18 @@ class GermanyRegionalTests(TestCase):
         self.assertGreater(len(root_map.keys()), 0)
 
     @override_settings(DJANGO_LEDGER_COUNTRY='de')
+    def test_german_vat_roles_registered(self):
+        from django_ledger.io import roles
+        from django_ledger_countries.de.roles import register_german_roles
+
+        register_german_roles()
+
+        self.assertIn('asset_ca_vat_recv', roles.VALID_ROLES)
+        self.assertIn('lia_cl_vat_payable', roles.VALID_ROLES)
+        asset_role_ids = [role_id for role_id, _ in roles.ACCOUNT_ROLE_CHOICES[0][1]]
+        self.assertIn('asset_ca_vat_recv', asset_role_ids)
+
+    @override_settings(DJANGO_LEDGER_COUNTRY='de')
     def test_skr03_account_translations(self):
         clear_country_plugin_cache()
         clear_settings_cache()
