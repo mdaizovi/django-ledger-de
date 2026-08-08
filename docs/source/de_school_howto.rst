@@ -955,15 +955,41 @@ Python API
    print(report.ytd_turnover)
    print(format_vat_quarterly_report(report))
 
-Invoice footnotes (future templates)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Entity tax profile and invoice footnotes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Each entity has an **Entity Tax Profile** (Django admin) that drives VAT posting,
+reporting expectations, and **legal invoice footnotes**:
+
++---------------------------+------------+------------------+------------------------+
+| ``tax_regime``            | Charges    | USt-Voranmeldung | Invoice footnote       |
+|                           | VAT?       | (ELSTER)?        |                        |
++===========================+============+==================+========================+
+| ``exempt`` (§ 4 UStG)     | No         | No               | § 4 exemption text     |
+| ``small_business`` (§ 19) | No         | No               | § 19 Kleinunternehmer  |
+| ``standard``              | Yes        | Yes (quarterly)  | USt-IdNr. + rate text  |
++---------------------------+------------+------------------+------------------------+
+
+Fields on **Entity Tax Profile**:
+
+- ``tax_regime`` — switch when Finanzamt confirms your status (no code changes)
+- ``vat_id`` — your USt-IdNr. (shown on standard-regime invoices)
+- ``show_invoice_legal_notice`` — uncheck while status is pending if you want no footnote yet
+- ``invoice_legal_notice`` — optional override (Steuerberater-approved wording)
+
+Invoices show the resolved footnote on the detail page under **Tax notice**.
+Programmatic access:
 
 .. code-block:: python
 
-   from django_ledger_countries.de import vat
+   from django_ledger_extensions.tax_profile import get_entity_tax_regime_behavior
 
-   notice = vat.invoice_vat_notice_for_entity(entity)
-   # § 4 UStG text for exempt, § 19 for Kleinunternehmer, empty for standard
+   behavior = get_entity_tax_regime_behavior(entity)
+   print(behavior.invoice_legal_notice)
+   print(behavior.requires_vat_quarterly_filing)
+   print(behavior.tracks_kleinunternehmer_turnover)
+
+After changing ``tax_regime``, run ``sync_tax_regime`` to refresh active SKR03 accounts.
 
 Management commands reference
 -----------------------------

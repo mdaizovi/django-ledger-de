@@ -84,3 +84,6 @@ class GermanyRegionalPlugin(RegionalPlugin):
 
     def on_journal_entry_posted(self, journal_entry, *, committed: bool = True) -> None:
         return
+
+    def get_invoice_legal_notice(self, entity) -> str:
+        return vat_module.default_invoice_legal_notice_for_entity(entity)

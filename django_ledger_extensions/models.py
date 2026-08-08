@@ -55,12 +55,38 @@ class EntityTaxProfile(CreateUpdateMixIn):
         ),
     )
     vat_id = models.CharField(max_length=64, blank=True, default='')
+    show_invoice_legal_notice = models.BooleanField(
+        default=True,
+        help_text=_(
+            'When enabled, customer invoices show the legal VAT footnote for the '
+            'current tax regime (or your custom text below).'
+        ),
+    )
+    invoice_legal_notice = models.TextField(
+        blank=True,
+        default='',
+        help_text=_(
+            'Optional override for the invoice legal footnote. Leave blank to use '
+            'the default text for the selected tax regime (§ 4 / § 19 UStG or '
+            'standard VAT wording).'
+        ),
+    )
 
     class Meta:
         verbose_name = _('Entity Tax Profile')
 
     def __str__(self) -> str:
         return f'TaxProfile<{self.entity_id}:{self.tax_regime}>'
+
+    def get_invoice_legal_notice(self) -> str:
+        from django_ledger_extensions.tax_profile import resolve_invoice_legal_notice
+
+        return resolve_invoice_legal_notice(self)
+
+    def get_tax_regime_behavior(self):
+        from django_ledger_extensions.tax_profile import get_entity_tax_regime_behavior
+
+        return get_entity_tax_regime_behavior(self.entity)
 
     def clean(self):
         super().clean()

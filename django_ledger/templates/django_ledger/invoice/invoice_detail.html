@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load static %}
 {% load django_ledger %}
+{% load django_ledger_extensions %}
 
 {% block header_buttons %}
     <a href="{% url 'django_ledger:invoice-list' entity_slug=view.kwargs.entity_slug %}"
@@ -128,6 +129,12 @@
                                     </tfoot>
                                 </table>
                             </div>
+                            {% invoice_tax_footnote invoice as tax_footnote %}
+                            {% if tax_footnote %}
+                                <p class="is-size-7 has-text-grey mt-4">
+                                    <strong>{% trans 'Tax notice' %}:</strong> {{ tax_footnote }}
+                                </p>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

@@ -63,7 +63,8 @@ def validate_vat_journal_entry(journal_entry) -> None:
     handler.validate_journal_entry(ctx, journal_entry)
 
 
-def invoice_vat_notice_for_entity(entity) -> str:
+def default_invoice_legal_notice_for_entity(entity) -> str:
+    """Regime-default legal footnote (before entity-level override)."""
     try:
         tax_profile = entity.tax_profile
     except Exception:
@@ -77,6 +78,17 @@ def invoice_vat_notice_for_entity(entity) -> str:
         coa=entity.default_coa,
     )
     return get_vat_handler(tax_profile.tax_regime).invoice_vat_notice(ctx)
+
+
+def invoice_vat_notice_for_entity(entity) -> str:
+    """Resolved footnote including entity override and visibility flags."""
+    from django_ledger_extensions.tax_profile import resolve_invoice_legal_notice
+
+    try:
+        tax_profile = entity.tax_profile
+    except Exception:
+        return ''
+    return resolve_invoice_legal_notice(tax_profile)
 
 
 def apply_regime_starter_activation(coa_model, tax_regime: Optional[str] = None) -> int:

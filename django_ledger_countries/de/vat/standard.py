@@ -6,6 +6,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Dict, List
 
+from django.utils.translation import gettext_lazy as _
+
 from django_ledger.io.roles import GROUP_COGS, GROUP_EXPENSES, GROUP_INCOME
 from django_ledger.models.utils import lazy_loader
 
@@ -72,6 +74,23 @@ class StandardVatHandler(VatRegimeHandler):
                 )
 
         return transactions + extra
+
+    def invoice_vat_notice(self, ctx: VatContext) -> str:
+        rate_pct = (ctx.vat_rate * Decimal('100')).quantize(Decimal('0.01'))
+        parts: List[str] = []
+        vat_id = (ctx.tax_profile.vat_id or '').strip()
+        if vat_id:
+            parts.append(str(_('VAT ID (USt-IdNr.): %(vat_id)s') % {'vat_id': vat_id}))
+        parts.append(
+            str(
+                _(
+                    'Prices include VAT at %(rate)s%% (Regelbesteuerung). '
+                    'VAT is shown and remitted via USt-Voranmeldung.'
+                )
+                % {'rate': rate_pct}
+            )
+        )
+        return ' '.join(parts)
 
     @staticmethod
     def _account_roles(transactions: list) -> Dict[object, str]:

@@ -14,8 +14,53 @@ from django_ledger_extensions.models import (
 
 @admin.register(EntityTaxProfile)
 class EntityTaxProfileAdmin(admin.ModelAdmin):
-    list_display = ('entity', 'tax_regime', 'default_vat_rate', 'vat_id')
+    list_display = (
+        'entity',
+        'tax_regime',
+        'default_vat_rate',
+        'vat_id',
+        'show_invoice_legal_notice',
+    )
     search_fields = ('entity__name', 'vat_id')
+    readonly_fields = ('regime_behavior_summary',)
+
+    fieldsets = (
+        (
+            None,
+            {
+                'fields': (
+                    'entity',
+                    'tax_regime',
+                    'default_vat_rate',
+                    'vat_id',
+                ),
+            },
+        ),
+        (
+            'Customer invoices',
+            {
+                'fields': (
+                    'show_invoice_legal_notice',
+                    'invoice_legal_notice',
+                    'regime_behavior_summary',
+                ),
+            },
+        ),
+    )
+
+    @admin.display(description='Regime behaviour (read-only)')
+    def regime_behavior_summary(self, obj: EntityTaxProfile) -> str:
+        behavior = obj.get_tax_regime_behavior()
+        if behavior is None:
+            return ''
+        lines = [
+            f'Charges VAT: {"yes" if behavior.charges_vat else "no"}',
+            f'USt-Voranmeldung required: {"yes" if behavior.requires_vat_quarterly_filing else "no"}',
+            f'Track Kleinunternehmer turnover: {"yes" if behavior.tracks_kleinunternehmer_turnover else "no"}',
+            f'Invoice footnote preview: {behavior.invoice_legal_notice or "(hidden)"}',
+            behavior.compliance_hint,
+        ]
+        return '\n'.join(lines)
 
 
 @admin.register(SupportingDocumentModel)

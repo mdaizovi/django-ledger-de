@@ -61,6 +61,10 @@ class RegionalPlugin(ABC):
     def validate_journal_entry(self, journal_entry: JournalEntryModel) -> None:
         """Raise ``ValidationError`` when posting rules are violated."""
 
+    def get_invoice_legal_notice(self, entity: EntityModel) -> str:
+        """Default legal footnote for customer invoices (country-specific)."""
+        return ''
+
     def validate_account_code(self, code: str) -> None:
         """Raise ``ValidationError`` when *code* is invalid for this country."""
 

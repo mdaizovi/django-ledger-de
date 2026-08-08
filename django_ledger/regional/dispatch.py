@@ -43,3 +43,7 @@ def dispatch_validate_account_code(code: str) -> None:
 
 def should_enforce_account_code_prefix() -> bool:
     return get_country_plugin().enforce_account_code_prefix()
+
+
+def dispatch_get_invoice_legal_notice(entity: EntityModel) -> str:
+    return get_country_plugin().get_invoice_legal_notice(entity)
