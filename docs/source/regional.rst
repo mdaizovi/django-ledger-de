@@ -199,6 +199,8 @@ Load or refresh:
 
    python manage.py sync_skr03 --entity=your-entity-slug
    python manage.py sync_skr03 --entity=your-entity-slug --force
+   python manage.py sync_skr03 --entity=your-entity-slug --merge --dry-run
+   python manage.py sync_skr03 --entity=your-entity-slug --merge
 
 Optional overrides:
 
@@ -206,6 +208,9 @@ Optional overrides:
 
    # Custom CSV path
    DJANGO_LEDGER_DE_SKR03_CSV = '/path/to/chart.csv'
+
+   # Or select bundled file by year (2027_Schulen_freie_Träger.csv, etc.)
+   DJANGO_LEDGER_DE_SKR03_YEAR = 2027
 
    # Replace default active starter codes entirely
    DJANGO_LEDGER_DE_SKR03_STARTER_CODES = [
@@ -324,7 +329,7 @@ of VAT clearing accounts on manual journal entries.
 
 Management commands (``django_ledger_countries/management/commands/``):
 
-- ``sync_skr03`` — load DATEV chart; apply regime-aware starter activation
+- ``sync_skr03`` — load DATEV chart; ``--merge`` for annual CSV updates (retire missing codes)
 - ``sync_tax_regime`` — re-apply active accounts after changing tax profile
 - ``vat_quarterly_report`` — quarterly VAT or turnover summary
 

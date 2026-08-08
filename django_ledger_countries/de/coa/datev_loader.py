@@ -24,16 +24,33 @@ from django_ledger_countries.de.coa.starter import get_starter_account_codes, ma
 from django_ledger_countries.de.validators import parse_datev_account_code, validate_datev_account_code
 
 DEFAULT_CSV_FILENAME = '2026_Schulen_freie_Träger.csv'
+DEFAULT_CSV_BASENAME = 'Schulen_freie_Träger.csv'
 
 
 def default_csv_path() -> Path:
     return Path(__file__).resolve().parent / 'skr03' / DEFAULT_CSV_FILENAME
 
 
+def csv_path_for_year(year: int | str) -> Path:
+    return Path(__file__).resolve().parent / 'skr03' / f'{year}_{DEFAULT_CSV_BASENAME}'
+
+
+def get_skr03_edition_label(csv_path: Path | None = None) -> str:
+    path = csv_path or resolve_csv_path()
+    return path.stem
+
+
 def resolve_csv_path() -> Path:
     configured = getattr(settings, 'DJANGO_LEDGER_DE_SKR03_CSV', None)
     if configured:
         return Path(configured)
+
+    year = getattr(settings, 'DJANGO_LEDGER_DE_SKR03_YEAR', None)
+    if year:
+        year_path = csv_path_for_year(year)
+        if year_path.exists():
+            return year_path
+
     return default_csv_path()
 
 

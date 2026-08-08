@@ -17,6 +17,7 @@ from django_ledger_countries.de.coa.datev_loader import (
     clear_datev_coa_cache,
     get_account_translations_from_rows,
     get_cached_datev_accounts,
+    get_skr03_edition_label,
     load_datev_coa_rows,
     resolve_csv_path,
 )
@@ -49,6 +50,7 @@ __all__ = [
     'clear_datev_coa_cache',
     'get_account_translations',
     'get_skr03_accounts',
+    'get_skr03_edition_label',
     'get_skr03_root_map',
     'load_datev_coa_rows',
     'resolve_csv_path',

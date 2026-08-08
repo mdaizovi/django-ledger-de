@@ -131,6 +131,58 @@ After a normal sync, only the **starter account set** matching your entity's tax
 regime is ``active=True``. Everything else remains on the chart for reference and
 DATEV export but hidden from journal-entry pickers.
 
+The loaded edition is stored on the entity as ``entity.meta['skr03_edition']``
+and ``entity.meta['skr03_synced_at']`` (set on initial load via populate hook or
+after ``--merge``).
+
+Annual SKR03 update (2027 and later)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+DATEV publishes a new Branchenpaket CSV each year. You do **not** need to rebuild
+your books — merge the new export into the existing chart by account code.
+
+**When you get a new export (e.g. in January 2027):**
+
+1. Save the CSV into the repo or server, e.g.
+   ``django_ledger_countries/de/coa/skr03/2027_Schulen_freie_Träger.csv``
+2. Point settings at the new file (pick one):
+
+   .. code-block:: python
+
+      DJANGO_LEDGER_DE_SKR03_YEAR = 2027
+      # or explicit path:
+      # DJANGO_LEDGER_DE_SKR03_CSV = '/path/to/2027_Schulen_freie_Träger.csv'
+
+3. Preview the diff:
+
+   .. code-block:: shell
+
+      python manage.py sync_skr03 --entity=your-entity-slug --merge --dry-run
+
+4. Apply the merge:
+
+   .. code-block:: shell
+
+      python manage.py sync_skr03 --entity=your-entity-slug --merge
+
+**What ``--merge`` does:**
+
++-------------------+----------------------------------------------------------+
+| CSV has code,     | Insert new account (active only if in starter/regime set) |
+| DB does not       |                                                          |
++-------------------+----------------------------------------------------------+
+| Same code in both | Update German/English name; keep ``active`` as-is        |
++-------------------+----------------------------------------------------------+
+| DB has code,      | Retire: ``active=False`` (account stays for old JEs)     |
+| CSV omits it      |                                                          |
++-------------------+----------------------------------------------------------+
+
+Accounts are **never deleted** — retired codes remain for historical journal entries
+and Steuerberater export. After merge, starter/regime activation is re-applied
+(same as a normal sync).
+
+Optional: ``--no-retire-missing`` skips deactivating codes absent from the new CSV.
+
 Full chart vs starter accounts
 ------------------------------
 
@@ -995,11 +1047,13 @@ Management commands reference
 -----------------------------
 
 ``sync_skr03``
-   Load DATEV SKR03 CSV; apply regime-aware starter activation.
+   Load DATEV SKR03 CSV; apply regime-aware starter activation. Use ``--merge`` for
+   annual Branchenpaket updates on an existing chart.
 
    .. code-block:: shell
 
       python manage.py sync_skr03 --entity=SLUG [--force] [--activate-all] [--deactivate-all]
+      python manage.py sync_skr03 --entity=SLUG --merge [--dry-run] [--no-retire-missing]
 
 ``sync_tax_regime``
    Re-apply active starter accounts after changing Entity Tax Profile.
@@ -1086,6 +1140,9 @@ default). See :doc:`regional` for resolution order.
    * - ``DJANGO_LEDGER_DE_SKR03_CSV``
      - bundled CSV
      - Alternate DATEV export path
+   * - ``DJANGO_LEDGER_DE_SKR03_YEAR``
+     - ``2026`` (uses bundled file if present)
+     - Select ``{year}_Schulen_freie_Träger.csv`` for annual updates
    * - ``DJANGO_LEDGER_DE_SKR03_STARTER_CODES``
      - built-in list
      - Override active accounts
