@@ -41,11 +41,104 @@ your ledger.
 Prerequisites
 -------------
 
-- A working Django project with django-ledger installed (see the main README)
-- Migrations applied for ``django_ledger``, ``django_ledger_extensions``, and
-  ``django_ledger_countries``
-- ``DJANGO_LEDGER_COUNTRY = 'de'`` in settings
+- An **existing Django project** for your school site (or create one with ``django-admin startproject``)
+- Python 3.11+ and a virtualenv on the server and locally
 - A superuser (or entity admin) to access Django admin and the ledger UI
+
+Install this fork into your school site
+---------------------------------------
+
+You do **not** need a separate Django project for bookkeeping — add this fork as a
+dependency of your school site, then configure apps and URLs once.
+
+**1. Install from GitHub** (production — pin a branch, tag, or commit):
+
+.. code-block:: shell
+
+   pip install "git+https://github.com/mdaizovi/django-ledger-de.git@add_regional_plugin_infrastructure"
+
+For reproducible deploys, pin a commit hash instead of a branch name
+(``git rev-parse HEAD`` on the fork, or a release tag):
+
+.. code-block:: shell
+
+   pip install "git+https://github.com/mdaizovi/django-ledger-de.git@<commit-sha>"
+
+**Alternative — editable install** (local development, clone the fork first):
+
+.. code-block:: shell
+
+   git clone git@github.com:mdaizovi/django-ledger-de.git
+   cd django-ledger-de
+   pip install -e .
+
+**Pin in ``requirements.txt``** (recommended for your school repo):
+
+.. code-block:: text
+
+   django-ledger @ git+https://github.com/mdaizovi/django-ledger-de.git@add_regional_plugin_infrastructure
+   # S3 for Belege (optional):
+   django-storages>=1.14
+   boto3>=1.35
+
+**Or in ``pyproject.toml``** (if your site uses PEP 621 dependencies):
+
+.. code-block:: toml
+
+   dependencies = [
+       "django-ledger @ git+https://github.com/mdaizovi/django-ledger-de.git@add_regional_plugin_infrastructure",
+   ]
+
+**2. Register apps** in your site's ``settings.py`` (order matters — after ``django_ledger``):
+
+.. code-block:: python
+
+   INSTALLED_APPS = [
+       # ... your school apps ...
+       'django.contrib.admin',
+       'django.contrib.auth',
+       # ...
+       'django_ledger',
+       'django_ledger_extensions',
+       'django_ledger_countries',
+   ]
+
+   DJANGO_LEDGER_COUNTRY = 'de'
+
+**3. Template context processor** (required by django-ledger UI):
+
+.. code-block:: python
+
+   TEMPLATES = [{
+       'OPTIONS': {
+           'context_processors': [
+               # ...
+               'django_ledger.context.django_ledger_context',
+           ],
+       },
+   }]
+
+**4. URLs** — mount the ledger under a path (adjust prefix if you prefer):
+
+.. code-block:: python
+
+   from django.urls import include, path
+
+   urlpatterns = [
+       # ... your school site routes ...
+       path('ledger/', include('django_ledger.urls', namespace='django_ledger')),
+   ]
+
+**5. Database and admin user:**
+
+.. code-block:: shell
+
+   python manage.py migrate
+   python manage.py createsuperuser
+
+Then continue with *Initial setup* below (Germany settings, ``sync_skr03``, tax profile,
+S3, cron). Your class webapp stays in the same project — call
+``import_external_payment()`` from a view, signal, or Celery task when a student pays.
 
 Python packages (what to install)
 ---------------------------------
@@ -54,8 +147,9 @@ Python packages (what to install)
 
 .. code-block:: shell
 
-   pip install -e .                    # from repo root
-   # or: pip install django-ledger     # when published
+   # If you followed *Install this fork into your school site* above, django-ledger is
+   # already installed from Git. Otherwise, from a clone of the fork:
+   pip install -e .
 
 Core dependencies are declared in ``pyproject.toml``: Django, ``django-treebeard``,
 ``fpdf2``, ``ofxtools``, ``pillow``, etc. No extra packages are needed for SKR03,
@@ -1309,7 +1403,8 @@ End-to-end checklist
 
 **First-time setup (dev or prod)**
 
-#. Install package: ``pip install -e .`` (+ ``pip install -r requirements-s3.txt`` if using S3)
+#. Install fork into your school Django project (see *Install this fork into your school site*)
+#. ``pip install -r requirements-s3.txt`` (or boto3/storages in ``requirements.txt``) if using S3
 #. ``DJANGO_LEDGER_COUNTRY = 'de'`` and regional apps in ``INSTALLED_APPS``
 #. ``python manage.py migrate`` and ``createsuperuser``
 #. Create entity in ledger UI

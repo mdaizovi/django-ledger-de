@@ -72,6 +72,22 @@ Otherwise, you may create your project from scratch.
 
 ## Adding Django Ledger to an existing project.
 
+### Add this fork to an existing Django project
+
+Install from GitHub (pin a branch or commit for production):
+
+```bash
+pip install "git+https://github.com/mdaizovi/django-ledger-de.git@add_regional_plugin_infrastructure"
+```
+
+Or pin in `requirements.txt`:
+
+```text
+django-ledger @ git+https://github.com/mdaizovi/django-ledger-de.git@add_regional_plugin_infrastructure
+```
+
+Then add apps, context processor, URLs, and `migrate` as below. **Full walkthrough** (school site wiring, S3, deploy, checklists): [German school how-to](docs/source/de_school_howto.rst) — section *Install this fork into your school site*.
+
 ### Add django_ledger to INSTALLED_APPS in you new Django Project.
 
 ```python
