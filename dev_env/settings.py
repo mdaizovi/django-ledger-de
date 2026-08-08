@@ -27,6 +27,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_ledger',
+    'django_ledger_extensions',
+    'django_ledger_countries',
 ]
 
 if DEBUG:
@@ -136,6 +138,13 @@ CACHES = {
 
 # DJANGO_LEDGER_THEME = 'minty'
 DJANGO_LEDGER_USE_DEPRECATED_BEHAVIOR = False
+
+# Regional configuration — default is US (upstream django-ledger behavior).
+# DJANGO_LEDGER_COUNTRY = 'us'
+# DJANGO_LEDGER_COUNTRY = 'de'
+# DJANGO_LEDGER_DE_DEFAULT_COA = 'skr03'
+# DJANGO_LEDGER_DE_REQUIRE_SUPPORTING_DOCUMENT_ON_POST = True
+# DJANGO_LEDGER_CURRENCY_SYMBOL = '€'
 
 # LOGGING = {
 #     'version': 1,
