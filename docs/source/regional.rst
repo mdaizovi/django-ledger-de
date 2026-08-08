@@ -47,6 +47,13 @@ Run migrations (extensions adds new tables):
 
    python manage.py migrate
 
+Optional S3 storage for Belege (``django-storages`` + ``boto3``):
+
+.. code-block:: shell
+
+   pip install -r requirements-s3.txt
+   # or: pip install "django-ledger[s3]"
+
 Configuration
 -------------
 
@@ -140,12 +147,25 @@ country plugin rejects posting a journal entry that has no linked supporting doc
 
 Documents are marked immutable after the journal entry is posted.
 
-Optional S3 storage — set a bucket name and install ``requirements-s3.txt``:
+Optional S3 storage — set a bucket name and install ``requirements-s3.txt`` (``boto3`` +
+``django-storages``):
 
 .. code-block:: python
 
    INSTALLED_APPS += ['storages']
    DJANGO_LEDGER_AWS_STORAGE_BUCKET_NAME = 'your-bucket-name'
+   # DJANGO_LEDGER_AWS_S3_REGION_NAME = 'eu-central-1'   # default
+   # DJANGO_LEDGER_AWS_STORAGE_LOCATION = 'belege'       # S3 key prefix
+
+When the bucket name is set but ``storages`` is missing from ``INSTALLED_APPS``, Django
+logs a warning at startup. Without S3 settings, files use local ``MEDIA_ROOT``.
+
+Document inbox
+~~~~~~~~~~~~~~
+
+``django_ledger_extensions.models.DocumentInboxItem`` stages receipts and PDFs before you
+know which invoice, bill, or journal entry they belong to. Link from Django admin (dropdown
+on save) or via ``link_beleg`` / ``link_inbox_item_to_object()``.
 
 Entity tax profile
 ~~~~~~~~~~~~~~~~~~
@@ -155,10 +175,13 @@ Entity tax profile
 - ``tax_regime``: ``standard``, ``small_business``, or ``exempt``
 - ``default_vat_rate``: decimal fraction (e.g. ``0.19``) — used only for ``standard``
 - ``vat_id``: VAT identification number (when applicable)
+- ``show_invoice_legal_notice``: display regime-specific footnote on invoices (default ``True``)
+- ``invoice_legal_notice``: optional override text (Steuerberater-approved wording)
 
 Germany creates a default profile when a new entity is saved. Defaults come from
 ``DJANGO_LEDGER_DE_DEFAULT_TAX_REGIME`` (``exempt``) and ``DJANGO_LEDGER_DE_DEFAULT_VAT_RATE``
-(``0.19`` for standard regime only).
+(``0.19`` for standard regime only). Invoice footnotes resolve via
+``django_ledger_extensions.tax_profile.get_entity_tax_regime_behavior()``.
 
 Tax regimes
 ^^^^^^^^^^^
@@ -292,13 +315,48 @@ Extensions models
 -----------------
 
 EntityTaxProfile
-   One-to-one with ``EntityModel``. Tax regime and VAT defaults.
+   One-to-one with ``EntityModel``. Tax regime, VAT defaults, invoice legal footnotes.
+
+DocumentInboxItem
+   Staged Beleg upload before linking to invoice, bill, or journal entry.
 
 SupportingDocumentModel
    Generic file attachment with SHA-256 checksum and immutability after post.
 
+ExternalPaymentRecord / ExternalRefundRecord
+   Idempotent class-webapp (or other provider) payment and refund imports.
+
+AccountingReminderRule
+   Per-entity deadline reminders (USt-Voranmeldung, bookkeeping close, etc.).
+
 AccountTranslationModel / ItemTranslationModel
    Locale-specific names (and optional regional codes for items).
+
+Extensions management commands
+------------------------------
+
+Located under ``django_ledger_extensions/management/commands/``:
+
+- ``link_beleg`` — link inbox item to invoice, bill, or journal entry
+- ``import_external_payment`` / ``import_external_refund`` — webapp payment connectors
+- ``seed_accounting_reminders`` — one-time default reminder rules per entity
+- ``send_accounting_reminders`` — daily cron for deadline emails
+- ``accounting_health_check`` — draft invoices, unlinked Belege, unmatched payments
+- ``match_bank_payments`` — link webapp payments to bank import lines
+- ``export_steuerberater`` — JSON + CSV bundle for Steuerberater handoff
+
+Extension settings (global ``DJANGO_LEDGER_*``):
+
+- ``REMINDER_DEFAULT_LEAD_DAYS`` (default ``14``)
+- ``REMINDER_GRACE_DAYS`` (default ``3``)
+- ``REMINDER_FROM_EMAIL`` (falls back to ``DEFAULT_FROM_EMAIL``)
+- ``HEALTH_CHECK_STALE_DRAFT_DAYS`` (default ``14``)
+- ``BANK_MATCH_AMOUNT_TOLERANCE`` (default ``0.01``)
+- ``BANK_MATCH_DAY_TOLERANCE`` (default ``7``)
+- ``AWS_STORAGE_BUCKET_NAME``, ``AWS_S3_REGION_NAME``, ``AWS_STORAGE_LOCATION`` — S3 Belege
+
+**Operational walkthrough:** :doc:`de_school_howto` (install checklist, weekly Beleg admin
+workflow, production deploy, cron).
 
 Germany plugin
 --------------

@@ -264,9 +264,9 @@ When students pay through your class webapp:
 1. Webapp calls `import_external_payment()` → **draft invoice**
 2. Ledger UI: review → attach payment receipt (Beleg) → **Approve** → **Mark as paid**
 
-When you receive a supplier PDF (Steuerberater, freelancer, rent): stage in **Beleg inbox** → create **Bill** → `link_beleg` → approve → mark paid when you pay.
+When you receive a supplier PDF (Steuerberater, freelancer, rent): stage in **Beleg inbox** (Django admin) → link to **Bill** on save → approve → mark paid when you pay.
 
-See the how-to section *When you have real invoices* for full checklists and commands (`link_beleg`, `import_external_payment`).
+See the how-to for full checklists: [de_school_howto.rst](docs/source/de_school_howto.rst) (*Production deployment checklist*, *End-to-end checklist*, admin Beleg workflow).
 
 #### Automation (cron)
 
@@ -300,7 +300,7 @@ Optional S3 storage for Belege (supporting documents + inbox):
 
 ```bash
 pip install -r requirements-s3.txt
-# or: pip install "django-ledger[s3]"
+# or: pip install "django-ledger[s3]"   # installs django-storages + boto3
 ```
 
 ```python
@@ -313,6 +313,8 @@ DJANGO_LEDGER_AWS_STORAGE_BUCKET_NAME = 'your-bucket-name'
 ```
 
 AWS credentials use the standard boto3 chain (environment variables, `~/.aws/credentials`, or an IAM role on your server). Files are private (`default_acl='private'`).
+
+**Full setup:** [German school how-to](docs/source/de_school_howto.rst) — Python packages, S3 bucket checklist, weekly Beleg admin workflow, production deploy checklist, cron, and end-to-end bookkeeping checklists.
 
 ### How plugins hook into core
 

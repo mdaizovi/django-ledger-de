@@ -6,9 +6,9 @@ This guide is for **German training providers** using django-ledger with the
 and in-person), freelance teachers, venue rental, and a small active account set
 on top of the full **DATEV SKR03** chart.
 
-It covers setup, daily bookkeeping, tax regimes, quarterly reporting, and
-**step-by-step workflows for real invoices** (student fees, supplier bills,
-Belege). For architecture and plugin internals, see :doc:`regional`.
+It covers setup, **Python packages to install**, daily bookkeeping, tax regimes, quarterly
+reporting, **production deployment**, and step-by-step workflows for real invoices
+(student fees, supplier bills, Belege). For architecture and plugin internals, see :doc:`regional`.
 
 **Viewing this guide:** it is part of the Sphinx docs. Build locally with
 ``cd docs && make html`` and open ``docs/build/html/de_school_howto.html``, or
@@ -46,6 +46,42 @@ Prerequisites
   ``django_ledger_countries``
 - ``DJANGO_LEDGER_COUNTRY = 'de'`` in settings
 - A superuser (or entity admin) to access Django admin and the ledger UI
+
+Python packages (what to install)
+---------------------------------
+
+**Core** (always required for this fork):
+
+.. code-block:: shell
+
+   pip install -e .                    # from repo root
+   # or: pip install django-ledger     # when published
+
+Core dependencies are declared in ``pyproject.toml``: Django, ``django-treebeard``,
+``fpdf2``, ``ofxtools``, ``pillow``, etc. No extra packages are needed for SKR03,
+tax regimes, Beleg inbox, or quarterly reports.
+
+**Optional — S3 storage for Belege** (document inbox + supporting documents):
+
+.. code-block:: shell
+
+   pip install -r requirements-s3.txt
+   # or: pip install "django-ledger[s3]"
+
+This installs ``django-storages`` and ``boto3`` (AWS SDK). Without these packages,
+Belege are stored on local disk (Django ``MEDIA_ROOT``). When
+``DJANGO_LEDGER_AWS_STORAGE_BUCKET_NAME`` is set, you must also add ``storages`` to
+``INSTALLED_APPS`` — see :ref:`s3-belege-storage`.
+
+**Optional — email reminders** (production cron):
+
+No extra pip packages. Configure Django's ``EMAIL_BACKEND`` and SMTP settings
+(see :ref:`production-deploy-checklist`).
+
+**Optional — PDF invoices** (upstream django-ledger feature):
+
+``fpdf2`` is already a core dependency. Some upstream PDF extras may need
+``pipenv install --categories pdf`` if you use the upstream starter template.
 
 Initial setup
 -------------
@@ -786,6 +822,8 @@ Daily cron
    # Preview without sending
    python manage.py send_accounting_reminders --dry-run
 
+.. _s3-belege-storage:
+
 S3 storage for Belege (optional)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -805,6 +843,19 @@ Optional: ``DJANGO_LEDGER_AWS_S3_REGION_NAME`` (default ``eu-central-1``),
 
 AWS credentials: standard boto3 chain (``AWS_ACCESS_KEY_ID`` / ``AWS_SECRET_ACCESS_KEY`` env vars,
 ``~/.aws/credentials``, or IAM role on EC2/ECS). Create a **private** bucket in ``eu-central-1`` for GDPR.
+
+**S3 bucket checklist (one-time):**
+
+#. Create a private S3 bucket (e.g. ``my-school-belege``) in ``eu-central-1``
+#. Block public access; enable default encryption (SSE-S3 or SSE-KMS)
+#. IAM user or instance role with ``s3:PutObject``, ``s3:GetObject``, ``s3:DeleteObject`` on
+   ``arn:aws:s3:::my-school-belege/belege/*`` (adjust prefix if you change ``STORAGE_LOCATION``)
+#. ``pip install -r requirements-s3.txt`` on the server
+#. Set ``INSTALLED_APPS += ['storages']`` and ``DJANGO_LEDGER_AWS_STORAGE_BUCKET_NAME`` in settings
+#. Upload a test file via Django admin → **Document inbox items** → confirm it appears in the bucket
+
+There is **no URL-paste field** in admin — upload the file through the ``FileField``; storage
+backend handles local disk vs S3 automatically.
 
 Monthly cron (suggested)
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1163,27 +1214,126 @@ default). See :doc:`regional` for resolution order.
    * - ``DJANGO_LEDGER_DE_REQUIRE_SUPPORTING_DOCUMENT_ON_POST``
      - ``True``
      - Beleg before JE post
+   * - ``DJANGO_LEDGER_AWS_STORAGE_BUCKET_NAME``
+     - *(empty — local disk)*
+     - Enable S3 for inbox + supporting documents
+   * - ``DJANGO_LEDGER_AWS_S3_REGION_NAME``
+     - ``eu-central-1``
+     - S3 bucket region
+   * - ``DJANGO_LEDGER_AWS_STORAGE_LOCATION``
+     - ``belege``
+     - Key prefix inside the bucket
+   * - ``DJANGO_LEDGER_REMINDER_DEFAULT_LEAD_DAYS``
+     - ``14``
+     - Days before due date to send reminder email
+   * - ``DJANGO_LEDGER_REMINDER_GRACE_DAYS``
+     - ``3``
+     - Still send if daily cron missed a day
+   * - ``DJANGO_LEDGER_REMINDER_FROM_EMAIL``
+     - ``DEFAULT_FROM_EMAIL``
+     - Sender for accounting reminder emails
+   * - ``DJANGO_LEDGER_HEALTH_CHECK_STALE_DRAFT_DAYS``
+     - ``14``
+     - Flag draft invoices older than N days
+   * - ``DJANGO_LEDGER_BANK_MATCH_AMOUNT_TOLERANCE``
+     - ``0.01``
+     - Bank line vs payment amount tolerance (€)
+   * - ``DJANGO_LEDGER_BANK_MATCH_DAY_TOLERANCE``
+     - ``7``
+     - Bank line vs payment date tolerance (days)
+
+Extension settings resolve via ``get_extension_setting()`` (global ``DJANGO_LEDGER_*`` only).
+
+.. _production-deploy-checklist:
+
+Production deployment checklist
+-------------------------------
+
+Use this before going live with real student payments and Belege. Operational bookkeeping
+steps are in *End-to-end checklist* below.
+
+**Server and Django**
+
+#. ``DEBUG = False``, strong ``SECRET_KEY``, ``ALLOWED_HOSTS`` set
+#. Production database (PostgreSQL recommended) — not SQLite
+#. ``python manage.py migrate`` on deploy
+#. Static files served (``collectstatic`` + whitenoise, nginx, or CDN)
+#. HTTPS enabled
+
+**Regional apps and Germany**
+
+#. ``INSTALLED_APPS``: ``django_ledger``, ``django_ledger_extensions``,
+   ``django_ledger_countries`` (after ``django_ledger``)
+#. ``DJANGO_LEDGER_COUNTRY = 'de'`` and recommended DE settings (see *Initial setup*)
+#. Create entity in ledger UI → ``python manage.py sync_skr03 --entity=your-slug``
+#. Django admin → **Entity tax profiles** — confirm ``tax_regime``, ``vat_id``,
+   ``show_invoice_legal_notice`` / ``invoice_legal_notice`` as appropriate
+
+**Class webapp integration**
+
+#. Wire payment webhooks or batch jobs to ``import_external_payment()`` (see
+   *Import course payments from your class webapp*)
+#. Wire refunds to ``import_external_refund()`` when students cancel
+#. Use stable ``provider`` + ``external_id`` per payment (idempotent imports)
+
+**Belege (local disk or S3)**
+
+#. Leave ``DJANGO_LEDGER_AWS_STORAGE_BUCKET_NAME`` unset for local ``MEDIA_ROOT``, **or**
+   complete the :ref:`s3-belege-storage` bucket checklist
+#. Train weekly admin workflow: inbox → link on save → approve in ledger UI
+
+**Email and cron**
+
+#. Configure ``EMAIL_BACKEND`` and SMTP (or transactional provider)
+#. One-time: ``python manage.py seed_accounting_reminders --entity=your-slug --email=you@example.com``
+#. Daily cron: ``python manage.py send_accounting_reminders``
+#. Monthly cron: ``accounting_health_check``, ``match_bank_payments --apply``,
+   optional ``export_steuerberater``
+
+Example crontab (adjust paths and entity slug):
+
+.. code-block:: cron
+
+   0 7 * * *   cd /app && python manage.py send_accounting_reminders
+   0 8 5 * *   cd /app && python manage.py accounting_health_check --entity=my-school
+   0 8 5 * *   cd /app && python manage.py match_bank_payments --entity=my-school --apply
+
+**Not included (OK for MVP)**
+
+- Email → inbox automation (upload via admin or API for now)
+- ELSTER filing (use ``vat_quarterly_report`` + Steuerberater)
+- Automatic SKR03 2027 until you add the new DATEV CSV and run ``--merge``
 
 End-to-end checklist
 --------------------
 
-**First-time setup**
+**First-time setup (dev or prod)**
 
+#. Install package: ``pip install -e .`` (+ ``pip install -r requirements-s3.txt`` if using S3)
 #. ``DJANGO_LEDGER_COUNTRY = 'de'`` and regional apps in ``INSTALLED_APPS``
-#. ``python manage.py migrate``
+#. ``python manage.py migrate`` and ``createsuperuser``
 #. Create entity in ledger UI
 #. ``python manage.py sync_skr03 --entity=your-slug``
 #. Confirm **Entity tax profile** regime in Django admin
+#. ``python manage.py seed_accounting_reminders --entity=your-slug --email=you@example.com``
 #. Activate any extra accounts you need in chart of accounts UI
+
+**Each week**
+
+#. Django admin → **Document inbox items** (filter *Unlinked*) — link Belege to
+   invoice / bill / JE on save (see *Weekly workflow in Django admin*)
+#. Ledger UI — review and **Approve** draft invoices from class webapp imports
+#. Optional: ``python manage.py accounting_health_check --entity=your-slug``
 
 **Each month (real invoices)**
 
 #. **Student fees:** import from class webapp (or create invoice manually) →
    review draft → Beleg on invoice → **Approve** → **Mark as paid**
-#. **Supplier costs:** inbox PDF → create **Bill** → ``link_beleg`` → **Approve**
-   → **Mark as paid** when bank payment goes out
-#. **Small receipts:** ``create_quick_expense`` + post JE
+#. **Supplier costs:** inbox PDF in admin → create **Bill** → link Beleg on inbox save
+   (or supporting document add) → **Approve** → **Mark as paid** when bank payment goes out
+#. **Small receipts:** ``create_quick_expense`` + post JE (Beleg attached automatically)
 #. Confirm nothing is stuck in **draft** with missing Belege before quarter-end
+#. ``python manage.py match_bank_payments --entity=your-slug --apply`` after bank CSV import
 
 **Each quarter**
 
@@ -1192,9 +1342,14 @@ End-to-end checklist
 
 **When tax status changes**
 
-#. Update **Entity tax profile → tax regime**
+#. Update **Entity tax profile → tax regime** (and invoice footnote fields if needed)
 #. ``python manage.py sync_tax_regime --entity=your-slug``
 #. Point course-fee items at the correct revenue account (``8100`` / ``8200`` / ``8400``)
+
+**Annual (SKR03 Branchenpaket update)**
+
+#. Add new DATEV CSV (e.g. ``2027_Schulen_freie_Träger.csv``) and set ``DJANGO_LEDGER_DE_SKR03_YEAR``
+#. ``python manage.py sync_skr03 --entity=your-slug --merge --dry-run`` then ``--merge``
 
 FAQ
 ---
