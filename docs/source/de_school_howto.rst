@@ -476,12 +476,36 @@ Beleg inbox (staging before you know the ledger object)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Not every receipt arrives with an invoice or journal entry UUID. Use the
-**document inbox** to stage photos, PDFs, or email attachments first and link
-them later.
+**document inbox** to stage photos and PDFs first, then link them from Django admin
+(no command line required).
 
 Model: ``django_ledger_extensions.models.DocumentInboxItem``
 
-Python API:
+Weekly workflow in Django admin
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+1. Open **Document inbox items** → filter **Status: Unlinked** (and your entity).
+2. **Add** — choose entity, upload ``file``, add description / vendor / amount hints.
+3. Open the saved inbox row → section **Link to ledger object** — pick **one** of:
+
+   - Link to invoice  
+   - Link to bill  
+   - Link to journal entry  
+
+4. Click **Save**. The Beleg is copied onto a **Supporting document** on that object.
+5. Post / approve / mark paid in the ledger UI as usual.
+
+You can also **Add** a supporting document directly (**Supporting documents** in admin):
+choose entity, pick one target, upload the file — useful when you already know the
+invoice or bill.
+
+Optional CLI (same result as admin link):
+
+.. code-block:: bash
+
+   python manage.py link_beleg --inbox=<uuid> --invoice=<uuid>
+
+Python API (for your class webapp or scripts):
 
 .. code-block:: python
 
@@ -493,19 +517,9 @@ Python API:
        uploaded_file,
        description='Freelancer invoice May',
        suggested_amount=Decimal('800.00'),
-       external_source='email',
-       external_id='msg-12345',  # optional idempotency for connectors
    )
 
-   # Later, when you have the target:
    link_inbox_item_to_object(inbox, journal_entry)  # or invoice / bill
-
-Management command:
-
-.. code-block:: bash
-
-   python manage.py link_beleg --inbox=<uuid> --invoice=<uuid>
-   python manage.py link_beleg --inbox=<uuid> --journal-entry=<uuid>
 
 One-step manual expense with photo:
 
