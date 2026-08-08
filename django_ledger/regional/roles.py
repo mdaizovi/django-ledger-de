@@ -75,8 +75,32 @@ def register_extra_roles(
             + roles_module.ROLES_ORDER_CAPITAL
         )
 
+        top_group_name = {
+            'ASSET': 'GROUP_ASSETS',
+            'LIABILITY': 'GROUP_LIABILITIES',
+            'EQUITY': 'GROUP_CAPITAL',
+            'INCOME': 'GROUP_INCOME',
+            'COGS': 'GROUP_COGS',
+            'EXPENSE': 'GROUP_EXPENSES',
+        }.get(category)
+        if top_group_name:
+            top_group = getattr(roles_module, top_group_name)
+            top_group.extend(role_id for role_id, _ in new_roles)
+            top_group[:] = list(set(top_group))
+
     if group_memberships:
+        subgroup_parents = {
+            'GROUP_CURRENT_ASSETS': ('GROUP_ASSETS',),
+            'GROUP_NON_CURRENT_ASSETS': ('GROUP_ASSETS',),
+            'GROUP_QUICK_ASSETS': ('GROUP_ASSETS',),
+            'GROUP_CURRENT_LIABILITIES': ('GROUP_LIABILITIES',),
+            'GROUP_LT_LIABILITIES': ('GROUP_LIABILITIES',),
+        }
         for group_name, role_ids in group_memberships.items():
             group = getattr(roles_module, group_name)
             group.extend(role_ids)
             group[:] = list(set(group))
+            for parent_name in subgroup_parents.get(group_name, ()):
+                parent = getattr(roles_module, parent_name)
+                parent.extend(role_ids)
+                parent[:] = list(set(parent))

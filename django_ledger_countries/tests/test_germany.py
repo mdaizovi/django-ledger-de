@@ -35,14 +35,20 @@ class GermanyRegionalTests(TestCase):
     @override_settings(DJANGO_LEDGER_COUNTRY='de')
     def test_german_vat_roles_registered(self):
         from django_ledger.io import roles
-        from django_ledger_countries.de.roles import register_german_roles
+        from django_ledger_countries.de.roles import (
+            ASSET_CA_VAT_RECEIVABLE,
+            LIABILITY_CL_VAT_PAYABLE,
+            register_german_roles,
+        )
 
         register_german_roles()
 
-        self.assertIn('asset_ca_vat_recv', roles.VALID_ROLES)
-        self.assertIn('lia_cl_vat_payable', roles.VALID_ROLES)
+        self.assertIn(ASSET_CA_VAT_RECEIVABLE, roles.VALID_ROLES)
+        self.assertIn(LIABILITY_CL_VAT_PAYABLE, roles.VALID_ROLES)
+        self.assertIn(ASSET_CA_VAT_RECEIVABLE, roles.GROUP_ASSETS)
+        self.assertIn(LIABILITY_CL_VAT_PAYABLE, roles.GROUP_LIABILITIES)
         asset_role_ids = [role_id for role_id, _ in roles.ACCOUNT_ROLE_CHOICES[0][1]]
-        self.assertIn('asset_ca_vat_recv', asset_role_ids)
+        self.assertIn(ASSET_CA_VAT_RECEIVABLE, asset_role_ids)
 
     @override_settings(DJANGO_LEDGER_COUNTRY='de')
     def test_skr03_account_translations(self):
