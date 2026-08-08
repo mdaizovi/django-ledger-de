@@ -77,13 +77,13 @@ Otherwise, you may create your project from scratch.
 Install from GitHub (pin a branch or commit for production):
 
 ```bash
-pip install "git+https://github.com/mdaizovi/django-ledger-de.git@add_regional_plugin_infrastructure"
+pip install "git+https://github.com/mdaizovi/django-ledger-de.git"
 ```
 
 Or pin in `requirements.txt`:
 
 ```text
-django-ledger @ git+https://github.com/mdaizovi/django-ledger-de.git@add_regional_plugin_infrastructure
+django-ledger @ git+https://github.com/mdaizovi/django-ledger-de.git
 ```
 
 Then add apps, context processor, URLs, and `migrate` as below. **Full walkthrough** (school site wiring, S3, deploy, checklists): [German school how-to](docs/source/de_school_howto.rst) — section *Install this fork into your school site*.
@@ -368,7 +368,7 @@ for production environments. If you want to contribute to the project perform th
 2. Clone the repo from github and CD into project.
 
 ```shell
-git clone https://github.com/arrobalytics/django-ledger.git && cd django-ledger
+git clone https://github.com/mdaizovi/django-ledger-de.git && cd django-ledger-de
 ```
 
 3. Install PipEnv, if not already installed:
