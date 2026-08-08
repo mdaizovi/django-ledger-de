@@ -74,6 +74,10 @@ exclude = [
     "notebooks.*",
 ]
 
+[tool.setuptools.package-data]
+django_ledger = ["templates/**/*", "static/**/*"]
+"django_ledger_countries" = ["de/coa/skr03/*.csv"]
+
 [[tool.uv.index]]
 name = "testpypi"
 url = "https://test.pypi.org/simple/"

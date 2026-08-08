@@ -1,5 +1,6 @@
 recursive-include django_ledger/templates *
 recursive-include django_ledger/static *
+recursive-include django_ledger_countries/de/coa/skr03 *.csv
 
 prune dev_env
 prune docs
