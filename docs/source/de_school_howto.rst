@@ -76,10 +76,15 @@ For reproducible deploys, pin a commit hash instead of a branch name
 
 .. code-block:: text
 
+   Django>=4.2,<5.3
    django-ledger @ git+https://github.com/mdaizovi/django-ledger-de.git@add_regional_plugin_infrastructure
    # S3 for Belege (optional):
    django-storages>=1.14
    boto3>=1.35
+
+Pin **Django before** ``django-ledger`` so other apps (e.g. ``django-payments``) stay on
+the same major line. This fork declares ``django>=4.2,<5.3`` and will not pull Django 6
+when you reinstall from Git.
 
 **Or in ``pyproject.toml``** (if your site uses PEP 621 dependencies):
 
@@ -151,8 +156,8 @@ Python packages (what to install)
    # already installed from Git. Otherwise, from a clone of the fork:
    pip install -e .
 
-Core dependencies are declared in ``pyproject.toml``: Django, ``django-treebeard``,
-``fpdf2``, ``ofxtools``, ``pillow``, etc. No extra packages are needed for SKR03,
+Core dependencies are declared in ``pyproject.toml`` (``django>=4.2,<5.3``, ``django-treebeard``,
+``fpdf2``, ``ofxtools``, ``pillow``, etc.). No extra packages are needed for SKR03,
 tax regimes, Beleg inbox, or quarterly reports.
 
 **Optional — S3 storage for Belege** (document inbox + supporting documents):

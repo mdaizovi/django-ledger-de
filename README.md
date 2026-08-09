@@ -80,9 +80,10 @@ Install from GitHub (pin a branch or commit for production):
 pip install "git+https://github.com/mdaizovi/django-ledger-de.git"
 ```
 
-Or pin in `requirements.txt`:
+Or pin in `requirements.txt` (pin Django so reinstalling the fork does not upgrade to Django 6):
 
 ```text
+Django>=4.2,<5.3
 django-ledger @ git+https://github.com/mdaizovi/django-ledger-de.git
 ```
 
