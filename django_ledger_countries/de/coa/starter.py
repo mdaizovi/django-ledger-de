@@ -22,6 +22,8 @@ DEFAULT_SCHOOL_STARTER_CODES: tuple[str, ...] = (
     '1200 00',  # Bank
     '1400 00',  # Student / customer receivables (unpaid invoices)
     '1600 00',  # Trade payables (unpaid bills)
+    # django-ledger bill workflow clearing (ASSET_CA_PREPAID role in SKR03 class-2 mapping)
+    '2020 00',  # Bill prepaid/clearing account — not for P&L posting directly
     '1576 00',  # Input VAT 19% (Vorsteuer)
     '1776 00',  # Output VAT 19% (Umsatzsteuer)
     # Course revenue

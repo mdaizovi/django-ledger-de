@@ -51,6 +51,13 @@ class GermanyRegionalTests(TestCase):
         self.assertIn(ASSET_CA_VAT_RECEIVABLE, asset_role_ids)
 
     @override_settings(DJANGO_LEDGER_COUNTRY='de')
+    def test_gb_bs_role_sorts_expense_accounts(self):
+        from django_ledger.io.roles import EXPENSE_OPERATIONAL, role_display_order
+
+        self.assertGreater(role_display_order(EXPENSE_OPERATIONAL), 0)
+        self.assertGreater(role_display_order('asset_ca_vat_recv'), 0)
+
+    @override_settings(DJANGO_LEDGER_COUNTRY='de')
     def test_skr03_account_translations(self):
         clear_country_plugin_cache()
         clear_settings_cache()

@@ -20,7 +20,7 @@ from django.utils.formats import number_format
 from django_ledger import __version__
 from django_ledger.forms.app_filters import ActivityFilterForm, EntityFilterForm
 from django_ledger.forms.feedback import BugReportForm, RequestNewFeatureForm
-from django_ledger.io import ROLES_ORDER_ALL
+from django_ledger.io.roles import role_display_order
 from django_ledger.io.io_core import get_localdate, validate_activity
 from django_ledger.models import BillModel, InvoiceModel, JournalEntryModel, ImportJobModelQuerySet, ImportJobModel, \
     VendorModelQuerySet, CustomerModelQueryset
@@ -292,7 +292,7 @@ def closing_entry_table(context, closing_entry_qs):
 @register.inclusion_tag('django_ledger/closing_entry/tags/closing_entry_txs_table.html', takes_context=True)
 def closing_entry_txs_table(context, closing_entry_txs_qs):
     ce_txs_list = list(closing_entry_txs_qs)
-    ce_txs_list.sort(key=lambda ce_txs: ROLES_ORDER_ALL.index(ce_txs.account_model.role))
+    ce_txs_list.sort(key=lambda ce_txs: role_display_order(ce_txs.account_model.role))
     return {
         'ce_txs_list': ce_txs_list,
         'entity_slug': context['view'].kwargs['entity_slug'],

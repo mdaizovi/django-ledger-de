@@ -549,6 +549,23 @@ ROLES_ORDER_CAPITAL = [a[0] for a in ACCOUNT_ROLE_CHOICES[2][1]]
 ROLES_ORDER_ALL = list(chain.from_iterable([ROLES_ORDER_ASSETS, ROLES_ORDER_LIABILITIES, ROLES_ORDER_CAPITAL]))
 
 ACCOUNT_LIST_ROLE_ORDER = list(r[0] for r in chain.from_iterable([i[1] for i in ACCOUNT_CHOICES_NO_ROOT]))
+
+
+def role_display_order(role: str) -> int:
+    """
+    Stable sort key for chart/account UIs.
+
+    ``ROLES_ORDER_ALL`` covers balance-sheet roles only; SKR03 and other charts also
+    list income, COGS, and expense accounts whose roles live in ``ACCOUNT_LIST_ROLE_ORDER``.
+    """
+    try:
+        return ROLES_ORDER_ALL.index(role)
+    except ValueError:
+        pass
+    try:
+        return len(ROLES_ORDER_ALL) + ACCOUNT_LIST_ROLE_ORDER.index(role)
+    except ValueError:
+        return len(ROLES_ORDER_ALL) + len(ACCOUNT_LIST_ROLE_ORDER)
 ACCOUNT_LIST_ROLE_VERBOSE = {r[0]: r[1] for r in chain.from_iterable([i[1] for i in ACCOUNT_CHOICES_NO_ROOT])}
 
 ROLE_TUPLES = sum([[(r[0].lower(), s[0]) for s in r[1]] for r in ACCOUNT_ROLE_CHOICES], list())

@@ -67,7 +67,7 @@ from django_ledger.io.roles import (
     GROUP_ASSETS, GROUP_LIABILITIES, GROUP_CAPITAL, GROUP_INCOME, GROUP_EXPENSES, GROUP_COGS,
     ROOT_GROUP, BS_BUCKETS, ROOT_ASSETS, ROOT_LIABILITIES,
     ROOT_CAPITAL, ROOT_INCOME, ROOT_EXPENSES, ROOT_COA, VALID_PARENTS,
-    ROLES_ORDER_ALL, ASSET_CA_CASH
+    ROLES_ORDER_ALL, ASSET_CA_CASH, role_display_order,
 )
 from django_ledger.models.deprecations import deprecated_entity_slug_behavior
 from django_ledger.models.mixins import CreateUpdateMixIn
@@ -218,7 +218,7 @@ class AccountModelQuerySet(MP_NodeQuerySet):
                 and a list of accounts that fall into that role within the BS bucket.
         """
         accounts_gb = list(
-            (r, sorted(list(gb), key=lambda acc: ROLES_ORDER_ALL.index(acc.role))) for r, gb in
+            (r, sorted(list(gb), key=lambda acc: role_display_order(acc.role))) for r, gb in
             groupby(self, key=lambda acc: acc.get_bs_bucket())
         )
         return [
