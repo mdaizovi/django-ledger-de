@@ -76,6 +76,10 @@ class SupportingDocumentAdmin(admin.ModelAdmin):
     search_fields = ('description', 'object_id')
     readonly_fields = ('checksum', 'content_type', 'object_id', 'linked_object_display', 'created', 'updated')
 
+    def get_form(self, request, obj=None, **kwargs):
+        kwargs['form'] = SupportingDocumentAdminForm
+        return super().get_form(request, obj, **kwargs)
+
     def get_fieldsets(self, request, obj=None):
         if obj is None:
             return (

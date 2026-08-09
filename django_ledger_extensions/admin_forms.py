@@ -81,28 +81,6 @@ class DocumentInboxItemAdminForm(forms.ModelForm):
 
 
 class SupportingDocumentAdminForm(forms.ModelForm):
-    entity = forms.ModelChoiceField(
-        label=_('Entity'),
-        queryset=lazy_loader.get_entity_model().objects.all().order_by('name'),
-        required=False,
-        help_text=_('Filter targets below, then pick exactly one ledger object to attach this file to.'),
-    )
-    link_invoice = forms.ModelChoiceField(
-        label=_('Attach to invoice'),
-        queryset=lazy_loader.get_invoice_model().objects.none(),
-        required=False,
-    )
-    link_bill = forms.ModelChoiceField(
-        label=_('Attach to bill'),
-        queryset=lazy_loader.get_bill_model().objects.none(),
-        required=False,
-    )
-    link_journal_entry = forms.ModelChoiceField(
-        label=_('Attach to journal entry'),
-        queryset=lazy_loader.get_journal_entry_model().objects.none(),
-        required=False,
-    )
-
     class Meta:
         model = SupportingDocumentModel
         fields = (
@@ -111,13 +89,40 @@ class SupportingDocumentAdminForm(forms.ModelForm):
             'description',
         )
 
+    def _add_link_fields(self) -> None:
+        EntityModel = lazy_loader.get_entity_model()
+        InvoiceModel = lazy_loader.get_invoice_model()
+        BillModel = lazy_loader.get_bill_model()
+        JournalEntryModel = lazy_loader.get_journal_entry_model()
+
+        self.fields['entity'] = forms.ModelChoiceField(
+            label=_('Entity'),
+            queryset=EntityModel.objects.all().order_by('name'),
+            required=True,
+            help_text=_('Filter targets below, then pick exactly one ledger object to attach this file to.'),
+        )
+        self.fields['link_invoice'] = forms.ModelChoiceField(
+            label=_('Attach to invoice'),
+            queryset=InvoiceModel.objects.none(),
+            required=False,
+        )
+        self.fields['link_bill'] = forms.ModelChoiceField(
+            label=_('Attach to bill'),
+            queryset=BillModel.objects.none(),
+            required=False,
+        )
+        self.fields['link_journal_entry'] = forms.ModelChoiceField(
+            label=_('Attach to journal entry'),
+            queryset=JournalEntryModel.objects.none(),
+            required=False,
+        )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.instance.pk:
-            for name in ('entity', 'link_invoice', 'link_bill', 'link_journal_entry'):
-                if name in self.fields:
-                    del self.fields[name]
+        if not self.instance._state.adding:
             return
+
+        self._add_link_fields()
 
         entity_id = self.data.get('entity') or self.initial.get('entity')
         if not entity_id:
@@ -135,7 +140,7 @@ class SupportingDocumentAdminForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        if self.instance.pk:
+        if not self.instance._state.adding:
             return cleaned
 
         targets = [
