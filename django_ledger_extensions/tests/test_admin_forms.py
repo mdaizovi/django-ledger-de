@@ -6,6 +6,7 @@ from django_ledger.tests.base import DjangoLedgerBaseTest
 
 from django_ledger_extensions.admin_forms import DocumentInboxItemAdminForm, SupportingDocumentAdminForm
 from django_ledger_extensions.documents import create_inbox_item
+from django_ledger_extensions.models import SupportingDocumentModel
 
 
 class DocumentInboxAdminFormTests(DjangoLedgerBaseTest):
@@ -41,3 +42,15 @@ class SupportingDocumentAdminFormTests(DjangoLedgerBaseTest):
         self.assertIn('link_bill', form.fields)
         self.assertIn('link_journal_entry', form.fields)
         self.assertIn('file', form.fields)
+
+    def test_supporting_document_admin_add_fieldsets_match_form(self):
+        from django.contrib.admin.sites import AdminSite
+
+        from django_ledger_extensions.admin import SupportingDocumentAdmin
+
+        admin = SupportingDocumentAdmin(SupportingDocumentModel, AdminSite())
+        fieldsets = admin.get_fieldsets(request=None, obj=None)
+        field_names = fieldsets[0][1]['fields']
+        form = SupportingDocumentAdminForm()
+        for name in field_names:
+            self.assertIn(name, form.fields, msg=f'Missing admin field: {name}')
