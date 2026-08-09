@@ -58,6 +58,7 @@ from django.db import models
 from django.db.models import Q, F, UniqueConstraint
 from django.db.models.signals import pre_save
 from django.urls import reverse
+from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from treebeard.mp_tree import MP_Node, MP_NodeManager, MP_NodeQuerySet
 
@@ -767,7 +768,7 @@ class AccountModelAbstract(MP_Node, CreateUpdateMixIn):
         bool
             True if the instance is active, otherwise False
         """
-        return self.active is True
+        return bool(self.active)
 
     def is_locked(self) -> bool:
         """
@@ -797,9 +798,7 @@ class AccountModelAbstract(MP_Node, CreateUpdateMixIn):
         bool
             True if the object is inactive, otherwise False.
         """
-        return all([
-            self.active is False
-        ])
+        return not self.is_active()
 
     def can_deactivate(self):
         """
@@ -812,9 +811,7 @@ class AccountModelAbstract(MP_Node, CreateUpdateMixIn):
         bool
             True if the object is currently active and can be deactivated, otherwise False.
         """
-        return all([
-            self.active is True
-        ])
+        return self.is_active()
 
     def can_lock(self):
         return all([
@@ -878,10 +875,9 @@ class AccountModelAbstract(MP_Node, CreateUpdateMixIn):
             return
         self.active = True
         if commit:
-            self.save(update_fields=[
-                'active',
-                'updated'
-            ])
+            updated = now()
+            type(self).objects.filter(pk=self.pk).update(active=True, updated=updated)
+            self.updated = updated
 
     def deactivate(self, commit: bool = True, raise_exception: bool = True, **kwargs):
         """
@@ -905,11 +901,9 @@ class AccountModelAbstract(MP_Node, CreateUpdateMixIn):
             return
         self.active = False
         if commit:
-            self.save(
-                update_fields=[
-                    'active',
-                    'updated'
-                ])
+            updated = now()
+            type(self).objects.filter(pk=self.pk).update(active=False, updated=updated)
+            self.updated = updated
 
     def can_transact(self) -> bool:
         """

@@ -18,6 +18,7 @@ from django.forms import (
     CheckboxInput,
     HiddenInput,
 )
+from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from treebeard.forms import MoveNodeForm
 
@@ -147,6 +148,17 @@ class AccountModelUpdateForm(MoveNodeForm):
         if not role_default:
             return None
         return role_default
+
+    def save(self, commit=True):
+        active_value = self.cleaned_data.get('active')
+        instance = super().save(commit=commit)
+        if commit and instance.active != active_value:
+            AccountModel.objects.filter(pk=instance.pk).update(
+                active=active_value,
+                updated=now(),
+            )
+            instance.active = active_value
+        return instance
 
     class Meta:
         model = AccountModel

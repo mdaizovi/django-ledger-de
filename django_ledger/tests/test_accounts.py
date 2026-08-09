@@ -103,6 +103,92 @@ class AccountModelTests(DjangoLedgerBaseTest):
         self.assertEqual(response_create.status_code, 200)
         self.assertContains(response_create, 'Account codes must be unique for each Chart of Accounts Model.')
 
+    def test_account_activate_action_view(self):
+        entity_model: EntityModel = self.get_random_entity_model()
+        account_model: AccountModel = self.get_random_account(entity_model=entity_model, active=True)
+        account_model.deactivate(commit=True)
+
+        self.login_client()
+        activate_url = reverse(
+            viewname='django_ledger:account-action-activate',
+            kwargs={
+                'entity_slug': entity_model.slug,
+                'coa_slug': account_model.coa_slug,
+                'account_pk': account_model.uuid,
+            },
+        )
+        response = self.CLIENT.get(activate_url, follow=False)
+        self.assertEqual(response.status_code, 302)
+        account_model.refresh_from_db()
+        self.assertTrue(account_model.active)
+
+    def test_account_update_form_persists_active(self):
+        entity_model: EntityModel = self.get_random_entity_model()
+        account_model: AccountModel = self.get_random_account(entity_model=entity_model, active=False)
+
+        self.login_client()
+        update_url = reverse(
+            viewname='django_ledger:account-update',
+            kwargs={
+                'entity_slug': entity_model.slug,
+                'coa_slug': account_model.coa_slug,
+                'account_pk': account_model.uuid,
+            },
+        )
+        response = self.CLIENT.get(update_url)
+        self.assertEqual(response.status_code, 200)
+        form = response.context['form']
+        data = {
+            'code': account_model.code,
+            'name': account_model.name,
+            'role': account_model.role,
+            'role_default': '',
+            'balance_type': account_model.balance_type,
+            'active': 'on',
+            'coa_model': str(account_model.coa_model_id),
+            'treebeard_position': form.fields['treebeard_position'].choices[0][0],
+            'treebeard_ref_node': '',
+        }
+        response = self.CLIENT.post(update_url, data=data)
+        self.assertEqual(response.status_code, 302, msg=getattr(response, 'content', b''))
+        account_model.refresh_from_db()
+        self.assertTrue(account_model.active)
+
+    def test_account_update_form_persists_active_with_tree_move(self):
+        entity_model: EntityModel = self.get_random_entity_model()
+        account_model: AccountModel = self.get_random_account(entity_model=entity_model, active=False)
+        account_model.deactivate(commit=True)
+        ref_node = account_model.get_account_move_choice_queryset().first()
+        self.assertIsNotNone(ref_node)
+
+        self.login_client()
+        update_url = reverse(
+            viewname='django_ledger:account-update',
+            kwargs={
+                'entity_slug': entity_model.slug,
+                'coa_slug': account_model.coa_slug,
+                'account_pk': account_model.uuid,
+            },
+        )
+        response = self.CLIENT.get(update_url)
+        self.assertEqual(response.status_code, 200)
+        form = response.context['form']
+        data = {
+            'code': account_model.code,
+            'name': account_model.name,
+            'role': account_model.role,
+            'role_default': '',
+            'balance_type': account_model.balance_type,
+            'active': 'on',
+            'coa_model': str(account_model.coa_model_id),
+            'treebeard_position': 'left',
+            'treebeard_ref_node': str(ref_node.uuid),
+        }
+        response = self.CLIENT.post(update_url, data=data)
+        self.assertEqual(response.status_code, 302, msg=getattr(response, 'content', b''))
+        account_model.refresh_from_db()
+        self.assertTrue(account_model.active)
+
     def test_account_activation(self):
 
         entity_model: EntityModel = self.get_random_entity_model()

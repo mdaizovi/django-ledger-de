@@ -249,16 +249,21 @@ class BaseAccountModelActionView(BaseAccountModelBaseView,
         kwargs['user_model'] = self.request.user
         if not self.action_name:
             raise ImproperlyConfigured('View attribute action_name is required.')
-        response = super(BaseAccountModelActionView, self).get(request, *args, **kwargs)
         account_model: AccountModel = self.get_object()
 
         try:
             getattr(account_model, self.action_name)(commit=self.commit, **kwargs)
+            messages.success(
+                request,
+                _(f'Account {account_model.code}: {account_model.name} updated successfully.'),
+                extra_tags='is-success'
+            )
         except ValidationError as e:
+            message = e.messages[0] if getattr(e, 'messages', None) else str(e)
             messages.add_message(
                 request,
-                message=e.message,
+                message=message,
                 level=messages.ERROR,
                 extra_tags='is-danger'
             )
-        return response
+        return super(BaseAccountModelActionView, self).get(request, *args, **kwargs)

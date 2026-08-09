@@ -129,11 +129,22 @@ def merge_skr03_chart(
             continue
 
         name_changed = existing.name != row['name']
-        if name_changed:
+        role_changed = existing.role != row['role']
+        balance_changed = existing.balance_type != row['balance_type']
+        if name_changed or role_changed or balance_changed:
             result.updated += 1
             if not dry_run:
-                existing.name = row['name']
-                existing.save(update_fields=['name', 'updated'])
+                update_fields = ['updated']
+                if name_changed:
+                    existing.name = row['name']
+                    update_fields.append('name')
+                if role_changed:
+                    existing.role = row['role']
+                    update_fields.append('role')
+                if balance_changed:
+                    existing.balance_type = row['balance_type']
+                    update_fields.append('balance_type')
+                existing.save(update_fields=update_fields)
                 upsert_account_translations(existing, row)
         else:
             result.unchanged += 1

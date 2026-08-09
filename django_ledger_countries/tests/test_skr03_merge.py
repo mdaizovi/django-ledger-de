@@ -137,3 +137,41 @@ class Skr03MergeTests(DjangoLedgerBaseTest):
         self.assertEqual(coa.accountmodel_set.not_coa_root().count(), before)
         entity.refresh_from_db()
         self.assertNotIn('skr03_edition', entity.meta or {})
+
+    @override_settings(DJANGO_LEDGER_COUNTRY='us')
+    def test_merge_updates_role_when_csv_differs(self):
+        entity = self.get_random_entity_model()
+        coa = entity.default_coa
+        root_qs = coa.get_coa_root_accounts_qs()
+        prepaid = AccountModel(
+            code='2020 00',
+            name='Periodenfremde Aufwendungen',
+            role=roles.EXPENSE_OPERATIONAL,
+            balance_type=DEBIT,
+            active=True,
+            coa_model=coa,
+        )
+        prepaid.clean()
+        coa.insert_account(prepaid, root_account_qs=root_qs)
+
+        rows = [
+            {
+                'code': '2020 00',
+                'name': 'Periodenfremde Aufwendungen',
+                'role': roles.ASSET_CA_PREPAID,
+                'balance_type': DEBIT,
+                'active': True,
+            }
+        ]
+
+        result = merge_skr03_chart(
+            entity,
+            coa,
+            csv_path=Path('unused.csv'),
+            rows=rows,
+            retire_missing=False,
+        )
+
+        self.assertEqual(result.updated, 1)
+        prepaid.refresh_from_db()
+        self.assertEqual(prepaid.role, roles.ASSET_CA_PREPAID)
