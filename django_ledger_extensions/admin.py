@@ -76,9 +76,10 @@ class SupportingDocumentAdmin(admin.ModelAdmin):
     search_fields = ('description', 'object_id')
     readonly_fields = ('checksum', 'content_type', 'object_id', 'linked_object_display', 'created', 'updated')
 
-    def get_form(self, request, obj=None, **kwargs):
-        kwargs['form'] = SupportingDocumentAdminForm
-        return super().get_form(request, obj, **kwargs)
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        # entity/link_* are form-only fields; admin must not pass fieldsets into modelform_factory.
+        kwargs.pop('fields', None)
+        return SupportingDocumentAdminForm
 
     def get_fieldsets(self, request, obj=None):
         if obj is None:
@@ -167,6 +168,10 @@ class DocumentInboxItemAdmin(admin.ModelAdmin):
         'updated',
     )
     ordering = ('-created',)
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        kwargs.pop('fields', None)
+        return DocumentInboxItemAdminForm
 
     fieldsets = (
         (

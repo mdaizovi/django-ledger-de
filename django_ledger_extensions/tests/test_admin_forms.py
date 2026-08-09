@@ -45,6 +45,7 @@ class SupportingDocumentAdminFormTests(DjangoLedgerBaseTest):
 
     def test_supporting_document_admin_add_fieldsets_match_form(self):
         from django.contrib.admin.sites import AdminSite
+        from django.contrib.admin.options import flatten_fieldsets
 
         from django_ledger_extensions.admin import SupportingDocumentAdmin
 
@@ -53,4 +54,18 @@ class SupportingDocumentAdminFormTests(DjangoLedgerBaseTest):
         field_names = fieldsets[0][1]['fields']
         form = SupportingDocumentAdminForm()
         for name in field_names:
+            self.assertIn(name, form.fields, msg=f'Missing admin field: {name}')
+
+    def test_supporting_document_admin_get_form_ignores_fieldset_fields_kwarg(self):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.admin.options import flatten_fieldsets
+
+        from django_ledger_extensions.admin import SupportingDocumentAdmin
+
+        admin = SupportingDocumentAdmin(SupportingDocumentModel, AdminSite())
+        fields = flatten_fieldsets(admin.get_fieldsets(request=None, obj=None))
+        form_class = admin.get_form(request=None, obj=None, change=False, fields=fields)
+        self.assertIs(form_class, SupportingDocumentAdminForm)
+        form = form_class()
+        for name in fields:
             self.assertIn(name, form.fields, msg=f'Missing admin field: {name}')
