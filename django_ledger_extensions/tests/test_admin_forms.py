@@ -1,5 +1,6 @@
+from decimal import Decimal
+
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
 
 from django_ledger.models.mixins import PaymentTermsMixIn
 from django_ledger.tests.base import DjangoLedgerBaseTest
@@ -31,6 +32,35 @@ class DocumentInboxAdminFormTests(DjangoLedgerBaseTest):
         form = DocumentInboxItemAdminForm(instance=inbox)
         invoice_ids = list(form.fields['link_invoice'].queryset.values_list('pk', flat=True))
         self.assertIn(invoice.pk, invoice_ids)
+
+    def test_link_bill_validates_on_post_for_in_review_bill(self):
+        from random import choice
+
+        entity = self.get_random_entity_model()
+        bill_model = choice(list(entity.get_bills()))
+        self.assertIsNotNone(bill_model.ledger_id)
+
+        inbox = create_inbox_item(
+            entity,
+            SimpleUploadedFile('hosting.pdf', b'pdf-bytes', content_type='application/pdf'),
+        )
+        data = {
+            'entity': str(entity.pk),
+            'file': SimpleUploadedFile('hosting.pdf', b'pdf-bytes', content_type='application/pdf'),
+            'source': inbox.source,
+            'status': inbox.status,
+            'document_type': inbox.document_type,
+            'description': inbox.description,
+            'vendor_name': '',
+            'reference': '',
+            'external_source': '',
+            'external_id': '',
+            'metadata': '{}',
+            'link_bill': str(bill_model.pk),
+        }
+        form = DocumentInboxItemAdminForm(data=data, instance=inbox)
+        self.assertTrue(form.is_valid(), msg=form.errors.as_json())
+        self.assertEqual(form.cleaned_data['link_target'], bill_model)
 
 
 class SupportingDocumentAdminFormTests(DjangoLedgerBaseTest):
