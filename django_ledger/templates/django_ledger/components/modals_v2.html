@@ -3,12 +3,38 @@
     <div class="modal-background"></div>
     <div class="modal-content">
         <div class="card">
-            <div class="card-content"><p class="is-size-4 has-font-weight-light">{{ message }}</p></div>
+            <div class="card-content">
+                <p class="is-size-4 has-font-weight-light">{{ message }}</p>
+                {% if date_field_name %}
+                    <form id="{{ html_id }}-form" method="post" action="{{ action_url }}">
+                        {% csrf_token %}
+                        <div class="field mt-4">
+                            <label class="label" for="{{ html_id }}-date">{{ date_field_label }}</label>
+                            <div class="control">
+                                <input id="{{ html_id }}-date"
+                                       class="input"
+                                       type="date"
+                                       name="{{ date_field_name }}"
+                                       value="{{ date_default }}"
+                                       required>
+                            </div>
+                            {% if date_field_help %}
+                                <p class="help">{{ date_field_help }}</p>
+                            {% endif %}
+                        </div>
+                    </form>
+                {% endif %}
+            </div>
             <div class="card-footer">
                 <a onclick="djLedger.toggleModal('{{ html_id }}')"
                    class="card-footer-item has-background-success-light">{% trans 'Cancel' %}</a>
-                <a href="{{ action_url }}"
-                   class="card-footer-item has-background-info-light">{% trans 'Confirm' %}</a>
+                {% if date_field_name %}
+                    <a onclick="document.getElementById('{{ html_id }}-form').submit()"
+                       class="card-footer-item has-background-info-light">{% trans 'Confirm' %}</a>
+                {% else %}
+                    <a href="{{ action_url }}"
+                       class="card-footer-item has-background-info-light">{% trans 'Confirm' %}</a>
+                {% endif %}
             </div>
         </div>
     </div>

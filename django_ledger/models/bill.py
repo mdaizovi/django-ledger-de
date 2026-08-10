@@ -1348,7 +1348,7 @@ class BillModelAbstract(
                 self.migrate_state(
                     entity_slug=entity_slug,
                     user_model=user_model,
-                    je_timestamp=date_approved,
+                    je_timestamp=self.date_approved,
                     force_migrate=self.accrue,
                 )
             self.ledger.post(commit=commit, raise_exception=raise_exception)
@@ -1479,7 +1479,7 @@ class BillModelAbstract(
                 user_model=user_model,
                 entity_slug=entity_slug,
                 itemtxs_qs=itemtxs_qs,
-                je_timestamp=date_paid,
+                je_timestamp=self.date_paid,
                 force_migrate=True,
             )
             self.lock_ledger(commit=True)

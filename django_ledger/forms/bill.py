@@ -161,8 +161,18 @@ class DraftBillModelUpdateForm(BaseBillModelUpdateForm):
             'vendor',
             'terms',
             'xref',
+            'date_draft',
             'markdown_notes'
         ]
+        widgets = {
+            **BaseBillModelUpdateForm.Meta.widgets,
+            'date_draft': DateInput(
+                attrs={
+                    'class': DJANGO_LEDGER_FORM_INPUT_CLASSES,
+                    'placeholder': _('Bill Date (YYYY-MM-DD)...'),
+                }
+            ),
+        }
 
 
 class InReviewBillModelUpdateForm(BaseBillModelUpdateForm):

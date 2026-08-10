@@ -387,3 +387,71 @@ class BillModelTests(DjangoLedgerBaseTest):
             # self.assertEqual(bill_model.get_amount_open(), Decimal('0.00'))
             # self.assertEqual(bill_model.get_amount_prepaid(), Decimal('0.00'))
             # self.assertEqual(bill_model.get_amount_unearned(), Decimal('0.00'))
+
+    def test_bill_mark_as_paid_action_accepts_posted_payment_date(self):
+        self.login_client()
+        entity_model: EntityModel = choice(self.ENTITY_MODEL_QUERYSET)
+
+        bill_model = None
+        for candidate in entity_model.get_bills():
+            if candidate.can_pay():
+                bill_model = candidate
+                break
+
+        self.assertIsNotNone(bill_model, msg='Expected at least one approved unpaid bill in test data.')
+
+        payment_date = bill_model.date_approved or bill_model.date_draft or get_localdate()
+        mark_as_paid_url = reverse(
+            'django_ledger:bill-action-mark-as-paid',
+            kwargs={
+                'entity_slug': entity_model.slug,
+                'bill_pk': bill_model.uuid,
+            },
+        )
+
+        response = self.CLIENT.post(
+            mark_as_paid_url,
+            data={'action_date': payment_date.isoformat()},
+            follow=False,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        bill_model.refresh_from_db()
+        self.assertTrue(bill_model.is_paid())
+        self.assertEqual(bill_model.date_paid, payment_date)
+
+        payment_je = bill_model.ledger.journal_entries.order_by('-timestamp').first()
+        self.assertIsNotNone(payment_je)
+        self.assertEqual(payment_je.timestamp.date(), payment_date)
+
+    def test_bill_mark_as_approved_action_accepts_posted_expense_date(self):
+        self.login_client()
+        entity_model: EntityModel = choice(self.ENTITY_MODEL_QUERYSET)
+
+        bill_model = None
+        for candidate in entity_model.get_bills():
+            if candidate.can_approve():
+                bill_model = candidate
+                break
+
+        self.assertIsNotNone(bill_model, msg='Expected at least one bill that can be approved in test data.')
+
+        expense_date = bill_model.date_draft or get_localdate()
+        mark_as_approved_url = reverse(
+            'django_ledger:bill-action-mark-as-approved',
+            kwargs={
+                'entity_slug': entity_model.slug,
+                'bill_pk': bill_model.uuid,
+            },
+        )
+
+        response = self.CLIENT.post(
+            mark_as_approved_url,
+            data={'action_date': expense_date.isoformat()},
+            follow=False,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        bill_model.refresh_from_db()
+        self.assertTrue(bill_model.is_approved())
+        self.assertEqual(bill_model.date_approved, expense_date)

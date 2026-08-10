@@ -6,6 +6,8 @@ Contributions to this module:
     * Miguel Sanda <msanda@arrobalytics.com>
 """
 
+from datetime import date
+
 from django.contrib import messages
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.http import HttpResponseRedirect, HttpResponseBadRequest, HttpResponseNotFound, HttpResponseForbidden
@@ -508,8 +510,8 @@ class BaseBillActionView(BillModelModelBaseView, RedirectView, SingleObjectMixin
                            'bill_pk': kwargs['bill_pk']
                        })
 
-    def get(self, request, *args, **kwargs):
-        kwargs['user_model'] = self.request.user
+    def run_bill_action(self, request, *args, **kwargs):
+        kwargs['user_model'] = request.user
         if not self.action_name:
             raise ImproperlyConfigured('View attribute action_name is required.')
         response = super(BaseBillActionView, self).get(request, *args, **kwargs)
@@ -524,6 +526,41 @@ class BaseBillActionView(BillModelModelBaseView, RedirectView, SingleObjectMixin
                                  extra_tags='is-danger')
         return response
 
+    def get(self, request, *args, **kwargs):
+        return self.run_bill_action(request, *args, **kwargs)
+
+
+class BillModelActionWithDateView(BaseBillActionView):
+    """
+    Bill status actions that accept an optional action date from GET/POST.
+    """
+    http_method_names = ['get', 'post']
+    date_action_kwarg: str = None
+    date_form_field: str = 'action_date'
+
+    def parse_action_date(self, request):
+        raw = request.POST.get(self.date_form_field) or request.GET.get(self.date_form_field)
+        if not raw:
+            return None
+        try:
+            return date.fromisoformat(raw)
+        except ValueError as exc:
+            raise ValidationError(_('Enter a valid date (YYYY-MM-DD).')) from exc
+
+    def get_action_kwargs(self, request):
+        action_kwargs = dict()
+        action_date = self.parse_action_date(request)
+        if action_date is not None:
+            action_kwargs[self.date_action_kwarg] = action_date
+        return action_kwargs
+
+    def run_bill_action(self, request, *args, **kwargs):
+        kwargs.update(self.get_action_kwargs(request))
+        return super().run_bill_action(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        return self.run_bill_action(request, *args, **kwargs)
+
 
 class BillModelActionMarkAsDraftView(BaseBillActionView):
     action_name = 'mark_as_draft'
@@ -533,12 +570,14 @@ class BillModelActionMarkAsInReviewView(BaseBillActionView):
     action_name = 'mark_as_review'
 
 
-class BillModelActionMarkAsApprovedView(BaseBillActionView):
+class BillModelActionMarkAsApprovedView(BillModelActionWithDateView):
     action_name = 'mark_as_approved'
+    date_action_kwarg = 'date_approved'
 
 
-class BillModelActionMarkAsPaidView(BaseBillActionView):
+class BillModelActionMarkAsPaidView(BillModelActionWithDateView):
     action_name = 'mark_as_paid'
+    date_action_kwarg = 'date_paid'
 
 
 class BillModelActionDeleteView(BaseBillActionView):

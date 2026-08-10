@@ -469,6 +469,10 @@ def modal_action_v2(
         message: str,
         html_id: str,
         http_method: str = 'get',
+        date_field_name: str = None,
+        date_field_label: str = None,
+        date_field_help: str = None,
+        date_default: str = None,
 ):
     return {
         'object': model,
@@ -476,6 +480,10 @@ def modal_action_v2(
         'http_method': http_method,
         'message': message,
         'html_id': html_id,
+        'date_field_name': date_field_name,
+        'date_field_label': date_field_label,
+        'date_field_help': date_field_help,
+        'date_default': date_default,
     }
 
 

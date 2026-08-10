@@ -177,7 +177,7 @@
                            id="{{ bill.get_mark_as_approved_html_id }}-button"
                            class="card-footer-item has-text-success has-text-centered">{% trans 'Mark as Approved' %}</a>
                         {# MARK AS APPROVED MODAL #}
-                        {% modal_action_v2 bill bill.get_mark_as_approved_url bill.get_mark_as_approved_message bill.get_mark_as_approved_html_id %}
+                        {% modal_action_v2 bill bill.get_mark_as_approved_url bill.get_mark_as_approved_message bill.get_mark_as_approved_html_id http_method='post' date_field_name='action_date' date_field_label=_('Expense date (invoice date)') date_field_help=_('Books the expense on this date. Use the date on the supplier invoice.') date_default=bill.date_draft|date:'Y-m-d' %}
                     {% endif %}
 
                     {# MARK PAID #}
@@ -186,7 +186,7 @@
                            id="{{ bill.get_mark_as_paid_html_id }}-button"
                            class="card-footer-item has-text-success has-text-centered">{% trans 'Mark as Paid' %}</a>
                         {# MARK AS PAID MODAL #}
-                        {% modal_action_v2 bill bill.get_mark_as_paid_url bill.get_mark_as_paid_message bill.get_mark_as_paid_html_id %}
+                        {% modal_action_v2 bill bill.get_mark_as_paid_url bill.get_mark_as_paid_message bill.get_mark_as_paid_html_id http_method='post' date_field_name='action_date' date_field_label=_('Payment date') date_field_help=_('Books the bank payment on this date. Use the date the money left your account.') date_default=bill.date_approved|date:'Y-m-d' %}
                     {% endif %}
 
                     {# VOID BUTTON #}
