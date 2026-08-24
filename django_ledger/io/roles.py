@@ -467,7 +467,7 @@ ACCOUNT_ROLE_CHOICES_FOR_FORMS = [
         'Asset',
         (
             # CURRENT ASSETS ----
-            (ASSET_CA_CASH, _('Current Asset')),
+            (ASSET_CA_CASH, _('Cash & Equivalent')),
             (ASSET_CA_MKT_SECURITIES, _('Marketable Securities')),
             (ASSET_CA_RECEIVABLES, _('Receivables')),
             (ASSET_CA_INVENTORY, _('Inventory')),
