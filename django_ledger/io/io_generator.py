@@ -27,7 +27,7 @@ from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from django_ledger.io.io_core import get_localtime, get_localdate
-from django_ledger.io.roles import (INCOME_OPERATIONAL, ASSET_CA_INVENTORY, COGS, ASSET_CA_CASH, ASSET_CA_PREPAID,
+from django_ledger.io.roles import (INCOME_OPERATIONAL, ASSET_CA_INVENTORY, COGS_REGULAR, ASSET_CA_CASH, ASSET_CA_PREPAID,
                                     LIABILITY_CL_DEFERRED_REVENUE, EXPENSE_OPERATIONAL, EQUITY_CAPITAL,
                                     ASSET_CA_RECEIVABLES, LIABILITY_CL_ACC_PAYABLE)
 from django_ledger.models import (EntityModel, TransactionModel, VendorModel, CustomerModel,
@@ -358,7 +358,7 @@ class EntityDataGenerator(LoggingMixIn):
                 is_product_or_service=True,
                 inventory_account=choice(self.accounts_by_role[ASSET_CA_INVENTORY]),
                 earnings_account=choice(self.accounts_by_role[INCOME_OPERATIONAL]),
-                cogs_account=choice(self.accounts_by_role[COGS]),
+                cogs_account=choice(self.accounts_by_role[COGS_REGULAR]),
                 additional_info=dict()
             ))
 
@@ -384,7 +384,7 @@ class EntityDataGenerator(LoggingMixIn):
                 for_inventory=False,
                 is_product_or_service=True,
                 earnings_account=choice(self.accounts_by_role[INCOME_OPERATIONAL]),
-                cogs_account=choice(self.accounts_by_role[COGS]),
+                cogs_account=choice(self.accounts_by_role[COGS_REGULAR]),
                 additional_info=dict()
             ))
 
@@ -435,7 +435,7 @@ class EntityDataGenerator(LoggingMixIn):
                 sku=generate_random_sku(),
                 upc=generate_random_upc(),
                 earnings_account=choice(self.accounts_by_role[INCOME_OPERATIONAL]),
-                cogs_account=choice(self.accounts_by_role[COGS]),
+                cogs_account=choice(self.accounts_by_role[COGS_REGULAR]),
                 inventory_account=choice(self.accounts_by_role[ASSET_CA_INVENTORY]),
             ) for _ in range(inv_count)
         ]
