@@ -80,7 +80,12 @@ INCOME_CAPITAL_GAIN_LOSS = 'in_gain_loss'
 INCOME_INTEREST = 'in_interest'
 INCOME_OTHER = 'in_other'
 
-COGS = 'cogs_regular'
+COGS_REGULAR = 'cogs_regular'
+COGS_LABOR = 'cogs_labor'
+COGS_SUBCONTRACT = 'cogs_subcontract'
+COGS_MATERIALS = 'cogs_materials'
+COGS_EQUIPMENT = 'cogs_equipment'
+COGS_OTHER = 'cogs_other'
 
 EXPENSE_OPERATIONAL = 'ex_regular'
 EXPENSE_CAPITAL = 'ex_capital'
@@ -209,7 +214,7 @@ GROUP_DEBT_PAYMENT = [
     EXPENSE_INTEREST_LT
 ]
 
-GROUP_COGS = [ROOT_COGS, COGS]
+GROUP_COGS = [ROOT_COGS, COGS_REGULAR, COGS_LABOR, COGS_SUBCONTRACT, COGS_EQUIPMENT, COGS_MATERIALS, COGS_OTHER]
 
 GROUP_EXPENSES = [
     ROOT_EXPENSES,
@@ -223,9 +228,8 @@ GROUP_EXPENSES = [
     EXPENSE_OTHER,
 ]
 
-GROUP_NET_PROFIT = [INCOME_OPERATIONAL, INCOME_PASSIVE, INCOME_INTEREST, INCOME_CAPITAL_GAIN_LOSS, INCOME_OTHER, COGS]
-
-GROUP_GROSS_PROFIT = [INCOME_OPERATIONAL, COGS]
+GROUP_GROSS_PROFIT = [INCOME_OPERATIONAL] + GROUP_COGS
+GROUP_NET_PROFIT = GROUP_INCOME + GROUP_COGS + GROUP_EXPENSES
 
 GROUP_NET_SALES = [INCOME_OPERATIONAL, INCOME_PASSIVE]
 
@@ -248,7 +252,7 @@ GROUP_BILL = [ASSET_CA_CASH, ASSET_CA_PREPAID, LIABILITY_CL_ACC_PAYABLE]
 
 # ---> OPERATING REV/EXP (usual & frequent) <---- #
 GROUP_IC_OPERATING_REVENUES = [INCOME_OPERATIONAL]
-GROUP_IC_OPERATING_COGS = [COGS]
+GROUP_IC_OPERATING_COGS = GROUP_COGS
 GROUP_IC_OPERATING_EXPENSES = [EXPENSE_OPERATIONAL]
 
 # ---> OTHER REV/EXP (unusual OR infrequent) <---- #
@@ -368,7 +372,7 @@ ACCOUNT_ROLE_CHOICES = [
         BS_ASSET_ROLE.capitalize(),
         (
             # CURRENT ASSETS ----
-            (ASSET_CA_CASH, _('Current Asset')),
+            (ASSET_CA_CASH, _('Cash & Equivalent')),
             (ASSET_CA_MKT_SECURITIES, _('Marketable Securities')),
             (ASSET_CA_RECEIVABLES, _('Receivables')),
             (ASSET_CA_INVENTORY, _('Inventory')),
@@ -427,7 +431,12 @@ ACCOUNT_ROLE_CHOICES = [
             (INCOME_CAPITAL_GAIN_LOSS, _('Capital Gain/Loss Income')),
             (INCOME_OTHER, _('Other Income')),
             # COGS ----
-            (COGS, _('Cost of Goods Sold')),
+            (COGS_REGULAR, _('Cost of Goods Sold - Regular')),
+            (COGS_SUBCONTRACT, _('Cost of Goods Sold - Subcontract')),
+            (COGS_LABOR, _('Cost of Goods Sold - Labor')),
+            (COGS_MATERIALS, _('Cost of Goods Sold - Materials')),
+            (COGS_EQUIPMENT, _('Cost of Goods Sold - Equipment')),
+            (COGS_OTHER, _('Cost of Goods Sold - Other')),
             # EXPENSES ----
             (EXPENSE_OPERATIONAL, _('Regular Expense')),
             (EXPENSE_INTEREST_ST, _('Interest Expense - Short Term Debt')),
@@ -524,10 +533,20 @@ ACCOUNT_ROLE_CHOICES_FOR_FORMS = [
         ),
     ),
     (
+        'Cost of Goods Sold',
+        (
+            (COGS_REGULAR, _('Cost of Goods Sold - Regular')),
+            (COGS_LABOR, _('Cost of Goods Sold - Labor')),
+            (COGS_SUBCONTRACT, _('Cost of Goods Sold - Subcontract')),
+            (COGS_MATERIALS, _('Cost of Goods Sold - Materials')),
+            (COGS_EQUIPMENT, _('Cost of Goods Sold - Equipment')),
+            (COGS_OTHER, _('Cost of Goods Sold - Other')),
+
+        )
+    ),
+    (
         'Expense',
         (
-            # COGS ----
-            (COGS, _('Cost of Goods Sold')),
             # EXPENSES ----
             (EXPENSE_OPERATIONAL, _('Regular Expense')),
             (EXPENSE_INTEREST_ST, _('Interest Expense - Short Term Debt')),

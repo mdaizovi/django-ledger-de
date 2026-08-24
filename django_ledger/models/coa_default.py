@@ -247,7 +247,12 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     {'code': '4050', 'role': roles.INCOME_OTHER, 'balance_type': 'credit', 'name': 'Other Income', 'parent': None},
 
     # COGS ACCOUNTS ------
-    {'code': '5010', 'role': roles.COGS, 'balance_type': 'debit', 'name': 'Cost of Goods Sold', 'parent': None},
+    {'code': '5010', 'role': roles.COGS_REGULAR, 'balance_type': 'debit', 'name': 'Cost of Goods Sold - Regular', 'parent': None},
+    {'code': '5020', 'role': roles.COGS_LABOR, 'balance_type': 'debit', 'name': 'Cost of Goods Sold - Labor', 'parent': None},
+    {'code': '5030', 'role': roles.COGS_SUBCONTRACT, 'balance_type': 'debit', 'name': 'Cost of Goods Sold - Subcontract', 'parent': None},
+    {'code': '5040', 'role': roles.COGS_MATERIALS, 'balance_type': 'debit', 'name': 'Cost of Goods Sold - Materials', 'parent': None},
+    {'code': '5050', 'role': roles.COGS_EQUIPMENT, 'balance_type': 'debit', 'name': 'Cost of Goods Sold - Equipment', 'parent': None},
+    {'code': '5060', 'role': roles.COGS_OTHER, 'balance_type': 'debit', 'name': 'Cost of Goods Sold - Other', 'parent': None},
 
     # EXPENSE ACCOUNTS ------
     {'code': '6010', 'role': roles.EXPENSE_OPERATIONAL, 'balance_type': 'debit', 'name': 'Advertising', 'parent': None},
