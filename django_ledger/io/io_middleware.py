@@ -273,22 +273,22 @@ class IncomeStatementIOMiddleware:
                 'operating': {
                     'revenues': [
                         acc for acc in self.IO_DATA['group_account']['GROUP_INCOME'] if
-                        acc['role'] in roles_module.GROUP_IC_OPERATING_REVENUES
+                        acc['role'] in roles_module.GROUP_PNL_OPERATING_REVENUES
                     ],
                     'cogs': [
                         acc for acc in self.IO_DATA['group_account']['GROUP_COGS'] if
-                        acc['role'] in roles_module.GROUP_IC_OPERATING_COGS
+                        acc['role'] in roles_module.GROUP_PNL_COGS
                     ],
                     'expenses': [
                         acc for acc in self.IO_DATA['group_account']['GROUP_EXPENSES'] if
-                        acc['role'] in roles_module.GROUP_IC_OPERATING_EXPENSES
+                        acc['role'] in roles_module.GROUP_PNL_OPERATING_EXPENSES
                     ]
                 },
                 'other': {
                     'revenues': [acc for acc in self.IO_DATA['group_account']['GROUP_INCOME'] if
-                                 acc['role'] in roles_module.GROUP_IC_OTHER_REVENUES],
+                                 acc['role'] in roles_module.GROUP_PNL_OTHER_REVENUES],
                     'expenses': [acc for acc in self.IO_DATA['group_account']['GROUP_EXPENSES'] if
-                                 acc['role'] in roles_module.GROUP_IC_OTHER_EXPENSES],
+                                 acc['role'] in roles_module.GROUP_PNL_OTHER_EXPENSES],
                 }
             }
 
