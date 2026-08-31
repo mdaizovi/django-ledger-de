@@ -575,7 +575,7 @@ readthedocs = [
 [package.metadata]
 requires-dist = [
     { name = "django", specifier = ">=4.2" },
-    { name = "django-treebeard", specifier = ">=4.8.0" },
+    { name = "django-treebeard", specifier = ">=7.0.0" },
     { name = "faker", specifier = ">=37.6.0" },
     { name = "fpdf2", specifier = ">=2.8.4" },
     { name = "markdown", specifier = ">=3.9" },

@@ -14,7 +14,7 @@ maintainers = [
 ]
 dependencies = [
     "django>=4.2",
-    "django-treebeard>=4.8.0",
+    "django-treebeard>=7.0.0",
     "faker>=37.6.0",
     "fpdf2>=2.8.4",
     "markdown>=3.9",

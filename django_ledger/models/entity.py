@@ -33,7 +33,7 @@ from django.core import serializers
 from django.core.cache import caches
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.validators import MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.db.models import F, Model, Q
 from django.db.models.signals import pre_save
 from django.urls import reverse
@@ -1032,6 +1032,7 @@ class EntityModelAbstract(
         if commit:
             self.save(update_fields=['default_coa', 'updated'])
 
+    @transaction.atomic
     def create_chart_of_accounts(
             self,
             assign_as_default: bool = False,
