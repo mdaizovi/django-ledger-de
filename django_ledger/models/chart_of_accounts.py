@@ -73,9 +73,9 @@ from django_ledger.models.mixins import CreateUpdateMixIn, SlugNameMixIn
 from django_ledger.settings import (
     DJANGO_LEDGER_USE_DEPRECATED_BEHAVIOR,
     DJANGO_LEDGER_DB_ROUTER_HINT_KEY,
-    DJANGO_LEDGER_DB_ATOMIC_ALIAS,
+    DJANGO_LEDGER_DB_ROUTING_ALIAS,
 )
-from django_ledger.context import djl_action, DJL_ACTION_COA_CONFIGURE
+from django_ledger.routing import db_routing_action, DJL_DB_ROUTING_ACTION_COA_CONFIGURE
 
 UserModel = get_user_model()
 
@@ -271,7 +271,7 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
         self.configured = len(account_qs) == len(ROOT_GROUP)
         return self.configured
 
-    @transaction.atomic(DJANGO_LEDGER_DB_ATOMIC_ALIAS)
+    @transaction.atomic(DJANGO_LEDGER_DB_ROUTING_ALIAS)
     def configure(self, raise_exception: bool = True):
         """
         A method that properly configures the ChartOfAccounts model and creates the appropriate hierarchy boilerplate
@@ -284,8 +284,7 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
             Whether to raise an exception if root nodes already exist in the Chart of Accounts (default is True).
             This indicates that the ChartOfAccountModel instance is already configured.
         """
-
-        with djl_action(DJL_ACTION_COA_CONFIGURE):
+        with db_routing_action(DJL_DB_ROUTING_ACTION_COA_CONFIGURE):
             self.generate_slug(commit=False)
 
             if not self.is_configured():
@@ -304,7 +303,7 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
                     role_meta = ROOT_GROUP_META[ROOT_COA]
                     account_pk = uuid4()
                     _ = AccountModel.objects.db_manager(
-                        hints={DJANGO_LEDGER_DB_ROUTER_HINT_KEY: 'coa_configure'}
+                        hints={DJANGO_LEDGER_DB_ROUTER_HINT_KEY: DJL_DB_ROUTING_ACTION_COA_CONFIGURE}
                     ).add_root(
                         instance=AccountModel(
                             uuid=account_pk,
@@ -321,7 +320,7 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
 
                     # must retrieve root model after added pero django-treebeard documentation...
                     coa_root_account_model = AccountModel.objects.db_manager(
-                        hints={DJANGO_LEDGER_DB_ROUTER_HINT_KEY: 'coa_configure'}
+                        hints={DJANGO_LEDGER_DB_ROUTER_HINT_KEY: DJL_DB_ROUTING_ACTION_COA_CONFIGURE}
                     ).get(uuid__exact=account_pk)
 
                     for root_role in ROOT_GROUP_LEVEL_2:
@@ -329,7 +328,7 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
                             account_pk = uuid4()
                             role_meta = ROOT_GROUP_META[root_role]
                             AccountModel.objects.db_manager(
-                                hints={DJANGO_LEDGER_DB_ROUTER_HINT_KEY: 'coa_configure'}
+                                hints={DJANGO_LEDGER_DB_ROUTER_HINT_KEY: DJL_DB_ROUTING_ACTION_COA_CONFIGURE}
                             ).add_child(
                                 target=coa_root_account_model,
                                 instance=AccountModel(
@@ -559,7 +558,7 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
             if not acc_model.coa_model_id == self.uuid:
                 raise ChartOfAccountsModelValidationError(message=f'Invalid root queryset for CoA {self.name}')
 
-    @transaction.atomic
+    @transaction.atomic(DJANGO_LEDGER_DB_ROUTING_ALIAS)
     def insert_account(
         self,
         account_model: AccountModel,
@@ -624,7 +623,7 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
             return
         return coa_accounts_qs.get(uuid__exact=account_model.uuid)
 
-    @transaction.atomic
+    @transaction.atomic(DJANGO_LEDGER_DB_ROUTING_ALIAS)
     def create_account(
         self,
         code: str,
