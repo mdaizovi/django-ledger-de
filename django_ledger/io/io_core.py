@@ -675,8 +675,8 @@ class IODatabaseMixIn:
         self,
         entity_slug: Optional[str] = None,
         unit_slug: Optional[str] = None,
-        from_date: Optional[Union[date, datetime]] = None,
-        to_date: Optional[Union[date, datetime]] = None,
+        from_date: Optional[Union[date, datetime, str]] = None,
+        to_date: Optional[Union[date, datetime, str]] = None,
         by_activity: bool = False,
         by_tx_type: bool = False,
         by_period: bool = False,
@@ -998,7 +998,7 @@ class IODatabaseMixIn:
         unit_slug: Optional[str] = None,
         to_date: Optional[Union[date, datetime, str]] = None,
         from_date: Optional[Union[date, datetime, str]] = None,
-        equity_only: bool = False,
+        earnings_only: bool = False,
         activity: str = None,
         role: Optional[Union[Set[str], List[str]]] = None,
         accounts: Optional[Union[Set[str], List[str]]] = None,
@@ -1029,7 +1029,7 @@ class IODatabaseMixIn:
             The end date for the transaction filter. Defaults to None.
         from_date : Optional[Union[date, datetime, str]]
             The start date for the transaction filter. Defaults to None.
-        equity_only : bool
+        earnings_only : bool
             Whether to compute results only for earnings-related accounts. Defaults
             to False.
         activity : str
@@ -1063,8 +1063,8 @@ class IODatabaseMixIn:
             account balances, and other relevant digest information.
         """
 
-        if equity_only:
-            role = roles_module.GROUP_EARNINGS
+        if earnings_only:
+            role = roles_module.GROUP_PNL_NET_PROFIT
 
         io_result = self.database_digest(
             entity_slug=entity_slug,
@@ -1313,7 +1313,7 @@ class IODatabaseMixIn:
             to_date=to_date,
             from_date=from_date,
             signs=signs,
-            equity_only=equity_only,
+            earnings_only=equity_only,
             by_period=by_period,
             by_unit=by_unit,
             by_activity=by_activity,

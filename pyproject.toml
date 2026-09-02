@@ -7,14 +7,14 @@ description = "Double entry accounting system built on the Django Web Framework.
 keywords = ["django", "finance", "bookkeeping", "accounting", "balance sheet", "income statement", "general ledger", "money", "engine"]
 license = "GPL-3.0-or-later"
 authors = [
-    { name = "Miguel Sanda", email = "msanda@arrobalytics.com" }
+    { name = "Miguel Sanda", email = "msanda@edmagroup.com" }
 ]
 maintainers = [
-    { name = "Miguel Sanda", email = "msanda@arrobalytics.com" }
+    { name = "Miguel Sanda", email = "msanda@edmagroup.com" }
 ]
 dependencies = [
     "django>=4.2",
-    "django-treebeard>=4.7.1",
+    "django-treebeard>=7.0.0",
     "faker>=37.6.0",
     "fpdf2>=2.8.4",
     "markdown>=3.9",

@@ -70,7 +70,12 @@ from django_ledger.models import lazy_loader
 from django_ledger.models.accounts import AccountModel, AccountModelQuerySet
 from django_ledger.models.deprecations import deprecated_entity_slug_behavior
 from django_ledger.models.mixins import CreateUpdateMixIn, SlugNameMixIn
-from django_ledger.settings import DJANGO_LEDGER_USE_DEPRECATED_BEHAVIOR
+from django_ledger.settings import (
+    DJANGO_LEDGER_USE_DEPRECATED_BEHAVIOR,
+    DJANGO_LEDGER_DB_ROUTER_HINT_KEY,
+    DJANGO_LEDGER_DB_ROUTING_ALIAS,
+)
+from django_ledger.routing import db_routing_action, DJL_DB_ROUTING_ACTION_COA_CONFIGURE
 
 UserModel = get_user_model()
 
@@ -266,11 +271,12 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
         self.configured = len(account_qs) == len(ROOT_GROUP)
         return self.configured
 
+    @transaction.atomic(DJANGO_LEDGER_DB_ROUTING_ALIAS)
     def configure(self, raise_exception: bool = True):
         """
         A method that properly configures the ChartOfAccounts model and creates the appropriate hierarchy boilerplate
         to support the insertion of new accounts into the chart of account model tree.
-        This method must be called every time the ChartOfAccounts model is created.
+        This method must be called every time the ChartOfAccountModel is created.
 
         Parameters
         ----------
@@ -278,55 +284,66 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
             Whether to raise an exception if root nodes already exist in the Chart of Accounts (default is True).
             This indicates that the ChartOfAccountModel instance is already configured.
         """
-        self.generate_slug(commit=False)
+        with db_routing_action(DJL_DB_ROUTING_ACTION_COA_CONFIGURE):
+            self.generate_slug(commit=False)
 
-        if not self.is_configured():
-            root_accounts_qs = self.get_coa_root_accounts_qs()
-            existing_root_roles = list(set(acc.role for acc in root_accounts_qs))
+            if not self.is_configured():
+                root_accounts_qs = self.get_coa_root_accounts_qs()
+                existing_root_roles = list(set(acc.role for acc in root_accounts_qs))
 
-            if len(existing_root_roles) > 0:
-                if raise_exception:
-                    raise ChartOfAccountsModelValidationError(message=f'Root Nodes already Exist in CoA {self.uuid}...')
-                return
-
-            if ROOT_COA not in existing_root_roles:
-                # add coa root...
-                role_meta = ROOT_GROUP_META[ROOT_COA]
-                account_pk = uuid4()
-                root_account = AccountModel(
-                    uuid=account_pk,
-                    code=role_meta['code'],
-                    name=role_meta['title'],
-                    coa_model=self,
-                    role=ROOT_COA,
-                    role_default=True,
-                    active=False,
-                    locked=True,
-                    balance_type=role_meta['balance_type'],
-                )
-                AccountModel.add_root(instance=root_account)
-
-                # must retrieve root model after added pero django-treebeard documentation...
-                coa_root_account_model = AccountModel.objects.get(uuid__exact=account_pk)
-
-                for root_role in ROOT_GROUP_LEVEL_2:
-                    if root_role not in existing_root_roles:
-                        account_pk = uuid4()
-                        role_meta = ROOT_GROUP_META[root_role]
-                        coa_root_account_model.add_child(
-                            instance=AccountModel(
-                                uuid=account_pk,
-                                code=role_meta['code'],
-                                name=role_meta['title'],
-                                coa_model=self,
-                                role=root_role,
-                                role_default=True,
-                                active=False,
-                                locked=True,
-                                balance_type=role_meta['balance_type'],
-                            )
+                if len(existing_root_roles) > 0:
+                    if raise_exception:
+                        raise ChartOfAccountsModelValidationError(
+                            message=f'Root Nodes already Exist in CoA {self.uuid}...'
                         )
-                self.configured = True
+                    return
+
+                if ROOT_COA not in existing_root_roles:
+                    # add coa root...
+                    role_meta = ROOT_GROUP_META[ROOT_COA]
+                    account_pk = uuid4()
+                    _ = AccountModel.objects.db_manager(
+                        hints={DJANGO_LEDGER_DB_ROUTER_HINT_KEY: DJL_DB_ROUTING_ACTION_COA_CONFIGURE}
+                    ).add_root(
+                        instance=AccountModel(
+                            uuid=account_pk,
+                            code=role_meta['code'],
+                            name=role_meta['title'],
+                            coa_model=self,
+                            role=ROOT_COA,
+                            role_default=True,
+                            active=False,
+                            locked=True,
+                            balance_type=role_meta['balance_type'],
+                        ),
+                    )
+
+                    # must retrieve root model after added pero django-treebeard documentation...
+                    coa_root_account_model = AccountModel.objects.db_manager(
+                        hints={DJANGO_LEDGER_DB_ROUTER_HINT_KEY: DJL_DB_ROUTING_ACTION_COA_CONFIGURE}
+                    ).get(uuid__exact=account_pk)
+
+                    for root_role in ROOT_GROUP_LEVEL_2:
+                        if root_role not in existing_root_roles:
+                            account_pk = uuid4()
+                            role_meta = ROOT_GROUP_META[root_role]
+                            AccountModel.objects.db_manager(
+                                hints={DJANGO_LEDGER_DB_ROUTER_HINT_KEY: DJL_DB_ROUTING_ACTION_COA_CONFIGURE}
+                            ).add_child(
+                                target=coa_root_account_model,
+                                instance=AccountModel(
+                                    uuid=account_pk,
+                                    code=role_meta['code'],
+                                    name=role_meta['title'],
+                                    coa_model=self,
+                                    role=root_role,
+                                    role_default=True,
+                                    active=False,
+                                    locked=True,
+                                    balance_type=role_meta['balance_type'],
+                                ),
+                            )
+                    self.configured = True
 
     def get_coa_root_accounts_qs(self) -> AccountModelQuerySet:
         """
@@ -462,13 +479,15 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
         root_account = self.get_coa_root_node()
         return AccountModel.dump_bulk(parent=root_account)
 
-    def generate_slug(self, commit: bool = False, raise_exception: bool = False) -> str:
+    def generate_slug(self, commit: bool = False, raise_exception: bool = False) -> str | None:
         """
         Generates and assigns a slug based on the ChartOfAccounts model instance EntityModel information.
 
 
         Parameters
         ----------
+        commit : bool, optional
+                If set to True, it will commit the changes to the database.
         raise_exception : bool, optional
                 If set to True, it will raise a ChartOfAccountsModelValidationError if the `self.slug` is already set.
 
@@ -491,6 +510,8 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
 
         if commit:
             self.save(update_fields=['slug', 'updated'])
+
+        return self.slug
 
     def is_default(self) -> bool:
         """
@@ -537,11 +558,13 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
             if not acc_model.coa_model_id == self.uuid:
                 raise ChartOfAccountsModelValidationError(message=f'Invalid root queryset for CoA {self.name}')
 
+    @transaction.atomic(DJANGO_LEDGER_DB_ROUTING_ALIAS)
     def insert_account(
         self,
         account_model: AccountModel,
         root_account_qs: Optional[AccountModelQuerySet] = None,
-    ):
+        return_account_model: bool = True,
+    ) -> Optional[AccountModel]:
         """
         This method inserts the given account model into the chart of accounts (COA) instance.
         It first verifies if the account model's COA model ID matches the COA's UUID. If not, it
@@ -563,11 +586,13 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
         root_account_qs : Optional[AccountModelQuerySet], default=None
             The root account query set. If not provided, it will be obtained using the `get_coa_root_accounts_qs`
             method.
+        return_account_model : bool, default=False
+            Whether to return the inserted account model. Avoids additional database queries if set to False.
 
         Returns
         -------
-        AccountModel
-            The inserted account model.
+        Optional[AccountModel]
+            The inserted account model if `return_account_model` is True, otherwise None.
 
         Raises
         ------
@@ -594,8 +619,11 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
 
         account_root_node.add_child(instance=account_model)
         coa_accounts_qs = self.get_non_root_coa_accounts_qs()
+        if not return_account_model:
+            return
         return coa_accounts_qs.get(uuid__exact=account_model.uuid)
 
+    @transaction.atomic(DJANGO_LEDGER_DB_ROUTING_ALIAS)
     def create_account(
         self,
         code: str,
@@ -606,7 +634,8 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
         root_account_qs: Optional[AccountModelQuerySet] = None,
         is_role_default: bool = False,
         force_role_default: bool = False,
-    ):
+        return_account_model: bool = True,
+    ) -> Optional[AccountModel]:
         """
         Proper method for inserting a new Account Model into a CoA.
         Use this in liu of the direct instantiation of the AccountModel of using the django related manager.
@@ -630,6 +659,8 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
         force_role_default: bool
             Forces the new account model to be set as default for a specified role. Any pre-existing default account
             will be removed as default for the specified role.
+        return_account_model : bool
+            Specifies whether to return the created account model instance. Defaults to True.
 
         Returns
         -------
@@ -637,39 +668,37 @@ class ChartOfAccountModelAbstract(SlugNameMixIn, CreateUpdateMixIn):
             The created account model instance.
         """
 
-        with transaction.atomic():
-            if is_role_default:
-                account_model_qs: AccountModelQuerySet = self.get_coa_accounts()
+        if is_role_default:
+            account_model_qs: AccountModelQuerySet = self.get_coa_accounts()
 
-                default_role_account_qs: AccountModelQuerySet = account_model_qs.filter(
-                    role__exact=role, role_default=True
+            default_role_account_qs: AccountModelQuerySet = account_model_qs.filter(role__exact=role, role_default=True)
+            default_account_exists = default_role_account_qs.exists()
+
+            if default_account_exists and not force_role_default:
+                existing_account_model: AccountModel = default_role_account_qs.get()
+                raise ChartOfAccountsModelValidationError(
+                    f'The role {role} already has a default account {existing_account_model.code} for CoA {self}'
                 )
-                default_account_exists = default_role_account_qs.exists()
 
-                if default_account_exists and not force_role_default:
-                    existing_account_model: AccountModel = default_role_account_qs.get()
-                    raise ChartOfAccountsModelValidationError(
-                        f'The role {role} already has a default account {existing_account_model.code} for CoA {self}'
-                    )
+            elif default_account_exists and force_role_default:
+                existing_account_model: AccountModel = default_role_account_qs.get()
+                existing_account_model.role_default = False
+                existing_account_model.save(update_fields=['role_default', 'updated'])
 
-                elif default_account_exists and force_role_default:
-                    existing_account_model: AccountModel = default_role_account_qs.get()
-                    existing_account_model.role_default = False
-                    existing_account_model.save(update_fields=['role_default', 'updated'])
+        account_model = AccountModel(
+            code=code,
+            name=name,
+            role=role,
+            active=active,
+            balance_type=balance_type,
+            coa_model=self,
+            role_default=is_role_default,
+        )
 
-            account_model = AccountModel(
-                code=code,
-                name=name,
-                role=role,
-                active=active,
-                balance_type=balance_type,
-                coa_model=self,
-                role_default=is_role_default,
-            )
-
-            account_model.clean()
-            account_model = self.insert_account(account_model=account_model, root_account_qs=root_account_qs)
-
+        account_model.clean()
+        account_model = self.insert_account(
+            account_model=account_model, root_account_qs=root_account_qs, return_account_model=return_account_model
+        )
         return account_model
 
     # ACTIONS -----
