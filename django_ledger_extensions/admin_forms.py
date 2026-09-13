@@ -22,6 +22,16 @@ _EMPTY_LINK_HELP = _(
 )
 _LINK_BILL_HELP = _('Pick the bill, then Save to attach this Beleg.')
 
+# Shown read-only on SupportingDocument admin change view; must be on the form.
+_SUPPORTING_DOC_CHANGE_READONLY_FIELDS = (
+    'checksum',
+    'content_type',
+    'object_id',
+    'immutable',
+    'created',
+    'updated',
+)
+
 
 class EntityLedgerModelChoiceField(forms.ModelChoiceField):
     """
@@ -282,6 +292,10 @@ class SupportingDocumentAdminForm(forms.ModelForm):
         if not self.instance._state.adding:
             for name in ('entity', 'link_invoice', 'link_bill', 'link_journal_entry'):
                 self.fields.pop(name, None)
+            for name in _SUPPORTING_DOC_CHANGE_READONLY_FIELDS:
+                if name not in self.fields:
+                    model_field = SupportingDocumentModel._meta.get_field(name)
+                    self.fields[name] = model_field.formfield()
             return
 
         entity_id = _entity_id_from_form(self)
