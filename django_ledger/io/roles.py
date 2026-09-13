@@ -69,6 +69,8 @@ LIABILITY_LTL_MORTGAGE_PAYABLE = 'lia_ltl_mortgage'
 
 # EQUITY ----
 EQUITY_CAPITAL = 'eq_capital'
+EQUITY_CAPITAL_CONTRIBUTION = 'eq_capital_contribution'
+EQUITY_CAPITAL_DISTRIBUTION = 'eq_capital_distribution'
 EQUITY_ADJUSTMENT = 'eq_adjustment'
 EQUITY_COMMON_STOCK = 'eq_stock_common'
 EQUITY_PREFERRED_STOCK = 'eq_stock_preferred'
@@ -80,7 +82,12 @@ INCOME_CAPITAL_GAIN_LOSS = 'in_gain_loss'
 INCOME_INTEREST = 'in_interest'
 INCOME_OTHER = 'in_other'
 
-COGS = 'cogs_regular'
+COGS_REGULAR = 'cogs_regular'
+COGS_LABOR = 'cogs_labor'
+COGS_SUBCONTRACT = 'cogs_subcontract'
+COGS_MATERIALS = 'cogs_materials'
+COGS_EQUIPMENT = 'cogs_equipment'
+COGS_OTHER = 'cogs_other'
 
 EXPENSE_OPERATIONAL = 'ex_regular'
 EXPENSE_CAPITAL = 'ex_capital'
@@ -177,7 +184,6 @@ GROUP_LIABILITIES += GROUP_LT_LIABILITIES
 GROUP_LIABILITIES = list(set(GROUP_LIABILITIES))
 
 # CAPITAL/EQUITY...
-
 GROUP_CAPITAL = [
     ROOT_CAPITAL,
     EQUITY_CAPITAL,
@@ -185,15 +191,6 @@ GROUP_CAPITAL = [
     EQUITY_PREFERRED_STOCK,
     EQUITY_DIVIDENDS,
     EQUITY_ADJUSTMENT,
-]
-
-GROUP_INCOME = [
-    ROOT_INCOME,
-    INCOME_OPERATIONAL,
-    INCOME_PASSIVE,
-    INCOME_INTEREST,
-    INCOME_CAPITAL_GAIN_LOSS,
-    INCOME_OTHER,
 ]
 
 GROUP_TRANSFERS = [
@@ -206,28 +203,50 @@ GROUP_DEBT_PAYMENT = [
     LIABILITY_LTL_NOTES_PAYABLE,
     LIABILITY_LTL_MORTGAGE_PAYABLE,
     EXPENSE_INTEREST_ST,
-    EXPENSE_INTEREST_LT
+    EXPENSE_INTEREST_LT,
 ]
 
-GROUP_COGS = [ROOT_COGS, COGS]
+# GROUP INCOME....
+GROUP_INCOME_OPERATING = [INCOME_OPERATIONAL]
+GROUP_INCOME_PASSIVE = [INCOME_PASSIVE]
+GROUP_INCOME_INTEREST = [INCOME_INTEREST]
+GROUP_INCOME_CAPITAL_GAIN_LOSS = [INCOME_CAPITAL_GAIN_LOSS]
+GROUP_INCOME_OTHER = [INCOME_OTHER]
+
+GROUP_INCOME_NON_OPERATING = (
+    GROUP_INCOME_PASSIVE + GROUP_INCOME_INTEREST + GROUP_INCOME_CAPITAL_GAIN_LOSS + GROUP_INCOME_OTHER
+)
+
+GROUP_INCOME = [
+    ROOT_INCOME,
+    *GROUP_INCOME_OPERATING,
+    *GROUP_INCOME_PASSIVE,
+    *GROUP_INCOME_INTEREST,
+    *GROUP_INCOME_CAPITAL_GAIN_LOSS,
+    *GROUP_INCOME_OTHER,
+]
+
+# GROUP COGS....
+GROUP_COGS = [ROOT_COGS, COGS_REGULAR, COGS_LABOR, COGS_SUBCONTRACT, COGS_EQUIPMENT, COGS_MATERIALS, COGS_OTHER]
+
+# GROUP EXPENSES....
+
+GROUP_EXPENSE_OPERATING = [EXPENSE_OPERATIONAL]
+GROUP_EXPENSE_INTEREST = [EXPENSE_INTEREST_ST, EXPENSE_INTEREST_LT]
+GROUP_EXPENSE_TAXES = [EXPENSE_TAXES]
+GROUP_EXPENSE_CAPITAL = [EXPENSE_CAPITAL]
+GROUP_EXPENSE_DEP_AND_AMT = [EXPENSE_DEPRECIATION, EXPENSE_AMORTIZATION]
+GROUP_EXPENSE_OTHER = [EXPENSE_OTHER]
 
 GROUP_EXPENSES = [
     ROOT_EXPENSES,
-    EXPENSE_OPERATIONAL,
-    EXPENSE_INTEREST_ST,
-    EXPENSE_INTEREST_LT,
-    EXPENSE_TAXES,
-    EXPENSE_CAPITAL,
-    EXPENSE_DEPRECIATION,
-    EXPENSE_AMORTIZATION,
-    EXPENSE_OTHER,
+    *GROUP_EXPENSE_OPERATING,
+    *GROUP_EXPENSE_INTEREST,
+    *GROUP_EXPENSE_TAXES,
+    *GROUP_EXPENSE_CAPITAL,
+    *GROUP_EXPENSE_DEP_AND_AMT,
+    *GROUP_EXPENSE_OTHER,
 ]
-
-GROUP_NET_PROFIT = [INCOME_OPERATIONAL, INCOME_PASSIVE, INCOME_INTEREST, INCOME_CAPITAL_GAIN_LOSS, INCOME_OTHER, COGS]
-
-GROUP_GROSS_PROFIT = [INCOME_OPERATIONAL, COGS]
-
-GROUP_NET_SALES = [INCOME_OPERATIONAL, INCOME_PASSIVE]
 
 GROUP_PPE_ACCUM_DEPRECIATION = [
     ASSET_PPE_BUILDINGS_ACCUM_DEPRECIATION,
@@ -235,25 +254,20 @@ GROUP_PPE_ACCUM_DEPRECIATION = [
     ASSET_PPE_PLANT_ACCUM_DEPRECIATION,
 ]
 
-GROUP_EXPENSE_DEP_AND_AMT = [EXPENSE_DEPRECIATION, EXPENSE_AMORTIZATION]
-
-GROUP_EARNINGS = GROUP_INCOME + GROUP_COGS + GROUP_EXPENSES
-GROUP_EQUITY = GROUP_CAPITAL + GROUP_EARNINGS
-GROUP_LIABILITIES_EQUITY = GROUP_LIABILITIES + GROUP_EQUITY
-
 GROUP_INVOICE = [ASSET_CA_CASH, ASSET_CA_RECEIVABLES, LIABILITY_CL_DEFERRED_REVENUE]
 GROUP_BILL = [ASSET_CA_CASH, ASSET_CA_PREPAID, LIABILITY_CL_ACC_PAYABLE]
 
-# ############# INCOME STATEMENT GROUPS ###############
+# ############# PROFIT & LOSS GROUPS ###############
+
 
 # ---> OPERATING REV/EXP (usual & frequent) <---- #
-GROUP_IC_OPERATING_REVENUES = [INCOME_OPERATIONAL]
-GROUP_IC_OPERATING_COGS = [COGS]
-GROUP_IC_OPERATING_EXPENSES = [EXPENSE_OPERATIONAL]
+GROUP_PNL_OPERATING_INCOME = GROUP_INCOME_OPERATING
+GROUP_PNL_COGS = GROUP_COGS
+GROUP_PNL_OPERATING_EXPENSES = GROUP_EXPENSE_OPERATING
 
 # ---> OTHER REV/EXP (unusual OR infrequent) <---- #
-GROUP_IC_OTHER_REVENUES = [INCOME_PASSIVE, INCOME_INTEREST, INCOME_CAPITAL_GAIN_LOSS, INCOME_OTHER]
-GROUP_IC_OTHER_EXPENSES = [
+GROUP_PNL_OTHER_INCOME = GROUP_INCOME_NON_OPERATING
+GROUP_PNL_OTHER_EXPENSES = [
     EXPENSE_INTEREST_ST,
     EXPENSE_INTEREST_LT,
     EXPENSE_TAXES,
@@ -263,8 +277,33 @@ GROUP_IC_OTHER_EXPENSES = [
     EXPENSE_OTHER,
 ]
 
+GROUP_PNL_GROSS_PROFIT = GROUP_INCOME_OPERATING + GROUP_COGS
+GROUP_PNL_OPERATING_PROFIT = GROUP_PNL_GROSS_PROFIT + GROUP_EXPENSE_OPERATING
+
+GROUP_PNL_NET_PROFIT = [
+    *GROUP_PNL_OPERATING_INCOME,
+    *GROUP_PNL_COGS,
+    *GROUP_PNL_OPERATING_EXPENSES,
+    *GROUP_PNL_OTHER_INCOME,
+    *GROUP_PNL_OTHER_EXPENSES,
+]
+
+# backwards compatibility groups...
+GROUP_EARNINGS = GROUP_PNL_NET_PROFIT
+# todo: must add another role for Sales returns, Sales allowances, Sales discounts...
+GROUP_NET_SALES = GROUP_PNL_OPERATING_INCOME
+GROUP_GROSS_PROFIT = GROUP_PNL_GROSS_PROFIT
+GROUP_NET_PROFIT = GROUP_PNL_NET_PROFIT
+
+# --> EBITDA <----
+GROUP_PNL_EBITDA = [*GROUP_PNL_OPERATING_INCOME, *GROUP_PNL_COGS, *GROUP_PNL_OPERATING_EXPENSES, *GROUP_EXPENSE_OTHER]
+
+
+GROUP_EQUITY = GROUP_CAPITAL + GROUP_PNL_NET_PROFIT
+GROUP_LIABILITIES_EQUITY = GROUP_LIABILITIES + GROUP_EQUITY
+
 # ############# CASH FLOW STATEMENT GROUPS ############
-GROUP_CFS_NET_INCOME = GROUP_EARNINGS
+GROUP_CFS_NET_INCOME = GROUP_PNL_NET_PROFIT
 
 # ---> OPERATING ACTIVITIES (INDIRECT) <---- #
 # Non-Cash/Non-Current...
@@ -368,7 +407,7 @@ ACCOUNT_ROLE_CHOICES = [
         BS_ASSET_ROLE.capitalize(),
         (
             # CURRENT ASSETS ----
-            (ASSET_CA_CASH, _('Current Asset')),
+            (ASSET_CA_CASH, _('Cash & Equivalent')),
             (ASSET_CA_MKT_SECURITIES, _('Marketable Securities')),
             (ASSET_CA_RECEIVABLES, _('Receivables')),
             (ASSET_CA_INVENTORY, _('Inventory')),
@@ -427,7 +466,12 @@ ACCOUNT_ROLE_CHOICES = [
             (INCOME_CAPITAL_GAIN_LOSS, _('Capital Gain/Loss Income')),
             (INCOME_OTHER, _('Other Income')),
             # COGS ----
-            (COGS, _('Cost of Goods Sold')),
+            (COGS_REGULAR, _('Cost of Goods Sold - Regular')),
+            (COGS_SUBCONTRACT, _('Cost of Goods Sold - Subcontract')),
+            (COGS_LABOR, _('Cost of Goods Sold - Labor')),
+            (COGS_MATERIALS, _('Cost of Goods Sold - Materials')),
+            (COGS_EQUIPMENT, _('Cost of Goods Sold - Equipment')),
+            (COGS_OTHER, _('Cost of Goods Sold - Other')),
             # EXPENSES ----
             (EXPENSE_OPERATIONAL, _('Regular Expense')),
             (EXPENSE_INTEREST_ST, _('Interest Expense - Short Term Debt')),
@@ -458,7 +502,7 @@ ACCOUNT_ROLE_CHOICES_FOR_FORMS = [
         'Asset',
         (
             # CURRENT ASSETS ----
-            (ASSET_CA_CASH, _('Current Asset')),
+            (ASSET_CA_CASH, _('Cash & Equivalent')),
             (ASSET_CA_MKT_SECURITIES, _('Marketable Securities')),
             (ASSET_CA_RECEIVABLES, _('Receivables')),
             (ASSET_CA_INVENTORY, _('Inventory')),
@@ -524,10 +568,19 @@ ACCOUNT_ROLE_CHOICES_FOR_FORMS = [
         ),
     ),
     (
+        'Cost of Goods Sold',
+        (
+            (COGS_REGULAR, _('Cost of Goods Sold - Regular')),
+            (COGS_LABOR, _('Cost of Goods Sold - Labor')),
+            (COGS_SUBCONTRACT, _('Cost of Goods Sold - Subcontract')),
+            (COGS_MATERIALS, _('Cost of Goods Sold - Materials')),
+            (COGS_EQUIPMENT, _('Cost of Goods Sold - Equipment')),
+            (COGS_OTHER, _('Cost of Goods Sold - Other')),
+        ),
+    ),
+    (
         'Expense',
         (
-            # COGS ----
-            (COGS, _('Cost of Goods Sold')),
             # EXPENSES ----
             (EXPENSE_OPERATIONAL, _('Regular Expense')),
             (EXPENSE_INTEREST_ST, _('Interest Expense - Short Term Debt')),
@@ -588,6 +641,70 @@ ROLES_GROUPS = [g for g in ROLES_VARS if g.split('_')[0] == 'GROUP']
 GROUPS_DIRECTORY = dict()
 for group in ROLES_GROUPS:
     GROUPS_DIRECTORY[group] = getattr(mod, group)
+
+GROUP_VERBOSE_NAME = {
+    'GROUP_ASSETS': _('Assets'),
+    'GROUP_BILL': _('Bill'),
+    'GROUP_CAPITAL': _('Capital'),
+    'GROUP_PNL_OPERATING_INCOME': _('Operating Income'),
+    'GROUP_PNL_COGS': _('Cost of Goods Sold'),
+    'GROUP_PNL_GROSS_PROFIT': _('Gross Profit'),
+    'GROUP_PNL_OPERATING_EXPENSES': _('Operating Expenses'),
+    'GROUP_PNL_OPERATING_PROFIT': _('Operating Profit'),
+    'GROUP_PNL_OTHER_INCOME': _('Other Income'),
+    'GROUP_PNL_OTHER_EXPENSES': _('Other Expenses'),
+    'GROUP_PNL_NET_PROFIT': _('Net Profit'),
+    'GROUP_PNL_EBITDA': _('EBITDA'),
+    'GROUP_PPE_ACCUM_DEPRECIATION': _('PPE Accumulated Depreciation'),
+    'GROUP_CFS_FINANCING': _('Financing Activities'),
+    'GROUP_CFS_FIN_DIVIDENDS': _('Dividends'),
+    'GROUP_CFS_FIN_ISSUING_EQUITY': _('Issuing Equity'),
+    'GROUP_CFS_FIN_LT_DEBT_PAYMENTS': _('Long Term Debt Payments'),
+    'GROUP_CFS_FIN_ST_DEBT_PAYMENTS': _('Short Term Debt Payments'),
+    'GROUP_CFS_INVESTING': _('Investing Activities'),
+    'GROUP_CFS_INVESTING_AND_FINANCING': _('Investing & Financing Activities'),
+    'GROUP_CFS_INVESTING_PPE': _('Investing PPE'),
+    'GROUP_CFS_INVESTING_SECURITIES': _('Investing Securities'),
+    'GROUP_CFS_INV_LTD_OF_PPE': _('Long Term Debt of PPE'),
+    'GROUP_CFS_INV_LTD_OF_SECURITIES': _('Long Term Debt of Securities'),
+    'GROUP_CFS_INV_PURCHASE_OF_SECURITIES': _('Purchase of Securities'),
+    'GROUP_CFS_INV_PURCHASE_OR_SALE_OF_PPE': _('Purchase or Sale of PPE'),
+    'GROUP_CFS_NET_INCOME': _('Net Income'),
+    'GROUP_CFS_OPERATING': _('Operating Activities'),
+    'GROUP_CFS_OP_ACCOUNTS_PAYABLE': _('Accounts Payable Adjustment'),
+    'GROUP_CFS_OP_ACCOUNTS_RECEIVABLE': _('Accounts Receivable Adjustment'),
+    'GROUP_CFS_OP_DEPRECIATION_AMORTIZATION': _('Depreciation & Amortization Adjustment'),
+    'GROUP_CFS_OP_INVENTORY': _('Inventory Adjustment'),
+    'GROUP_CFS_OP_INVESTMENT_GAINS': _('Investment Gains Adjustment'),
+    'GROUP_CFS_OP_OTHER_CURRENT_ASSETS_ADJUSTMENT': _('Other Current Assets Adjustment'),
+    'GROUP_CFS_OP_OTHER_CURRENT_LIABILITIES_ADJUSTMENT': _('Other Current Liabilities Adjustment'),
+    'GROUP_COGS': _('Cost of Goods Sold'),
+    'GROUP_CURRENT_ASSETS': _('Current Assets'),
+    'GROUP_CURRENT_LIABILITIES': _('Current Liabilities'),
+    'GROUP_DEBT_PAYMENT': _('Debt Payment'),
+    'GROUP_EQUITY': _('Equity'),
+    'GROUP_EXPENSES': _('Expenses'),
+    'GROUP_EXPENSE_CAPITAL': _('Capital Expense'),
+    'GROUP_EXPENSE_DEP_AND_AMT': _('Depreciation & Amortization Expense'),
+    'GROUP_EXPENSE_INTEREST': _('Interest Expense'),
+    'GROUP_EXPENSE_OPERATING': _('Operating Expense'),
+    'GROUP_EXPENSE_OTHER': _('Other Expense'),
+    'GROUP_EXPENSE_TAXES': _('Tax Expense'),
+    'GROUP_INCOME': _('Income'),
+    'GROUP_INCOME_CAPITAL_GAIN_LOSS': _('Capital Gain/Loss Income'),
+    'GROUP_INCOME_INTEREST': _('Interest Income'),
+    'GROUP_INCOME_NON_OPERATING': _('Non-Operating Income'),
+    'GROUP_INCOME_OPERATING': _('Operating Income'),
+    'GROUP_INCOME_OTHER': _('Other Income'),
+    'GROUP_INCOME_PASSIVE': _('Passive Income'),
+    'GROUP_INVOICE': _('Invoice'),
+    'GROUP_LIABILITIES': _('Liabilities'),
+    'GROUP_LIABILITIES_EQUITY': _('Liabilities & Equity'),
+    'GROUP_LT_LIABILITIES': _('Long-Term Liabilities'),
+    'GROUP_NON_CURRENT_ASSETS': _('Non-Current Assets'),
+    'GROUP_QUICK_ASSETS': _('Quick Assets'),
+    'GROUP_TRANSFERS': _('Transfers'),
+}
 
 
 def validate_roles(roles: Union[str, List[str]], raise_exception: bool = True) -> Set[str]:

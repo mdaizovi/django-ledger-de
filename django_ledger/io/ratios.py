@@ -22,10 +22,10 @@ class FinancialRatioManager:
         self.current_assets = io_data['group_balance']['GROUP_CURRENT_ASSETS']
         self.equity = io_data['group_balance']['GROUP_CAPITAL']
         self.liabilities = io_data['group_balance']['GROUP_LIABILITIES']
-        self.net_income = io_data['group_balance']['GROUP_EARNINGS']
         self.net_sales = io_data['group_balance']['GROUP_NET_SALES']
-        self.net_profit = io_data['group_balance']['GROUP_NET_PROFIT']
         self.gross_profit = io_data['group_balance']['GROUP_GROSS_PROFIT']
+        self.net_profit = io_data['group_balance']['GROUP_NET_PROFIT']
+        self.net_income = io_data['group_balance']['GROUP_EARNINGS']
         self.RATIOS = dict()
 
     def digest(self):

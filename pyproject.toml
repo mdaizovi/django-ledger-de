@@ -1,22 +1,22 @@
 [project]
 name = "django-ledger"
-version = "0.8.4"
+version = "0.8.5"
 readme = "README.md"
 requires-python = ">=3.11"
 description = "Double entry accounting system built on the Django Web Framework."
 keywords = ["django", "finance", "bookkeeping", "accounting", "balance sheet", "income statement", "general ledger", "money", "engine"]
 license = "GPL-3.0-or-later"
 authors = [
-    { name = "Miguel Sanda", email = "msanda@arrobalytics.com" }
+    { name = "Miguel Sanda", email = "msanda@edmagroup.com" }
 ]
 maintainers = [
-    { name = "Miguel Sanda", email = "msanda@arrobalytics.com" }
+    { name = "Miguel Sanda", email = "msanda@edmagroup.com" }
 ]
 dependencies = [
     # Cap below Django 6 so pip --force-reinstall does not upgrade host sites that
     # pin Django 5.2 (e.g. alongside django-payments, which requires <5.3).
     "django>=4.2,<5.3",
-    "django-treebeard>=4.7.1",
+    "django-treebeard>=7.0.0",
     "faker>=37.6.0",
     "fpdf2>=2.8.4",
     "markdown>=3.9",
@@ -31,6 +31,7 @@ classifiers = [
     "Framework :: Django :: 5.0",
     "Framework :: Django :: 5.1",
     "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
     "Intended Audience :: Financial and Insurance Industry",
     "Intended Audience :: End Users/Desktop"
 ]
