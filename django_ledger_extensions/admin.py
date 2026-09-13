@@ -74,7 +74,15 @@ class SupportingDocumentAdmin(admin.ModelAdmin):
     list_display = ('uuid', 'document_type', 'linked_object_display', 'immutable', 'created')
     list_filter = ('document_type', 'immutable')
     search_fields = ('description', 'object_id')
-    readonly_fields = ('checksum', 'content_type', 'object_id', 'linked_object_display', 'created', 'updated')
+    readonly_fields = (
+        'checksum',
+        'content_type',
+        'object_id',
+        'linked_object_display',
+        'immutable',
+        'created',
+        'updated',
+    )
 
     def get_form(self, request, obj=None, change=False, **kwargs):
         # entity/link_* are form-only fields; admin must not pass fieldsets into modelform_factory.

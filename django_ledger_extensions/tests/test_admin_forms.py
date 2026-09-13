@@ -99,3 +99,31 @@ class SupportingDocumentAdminFormTests(DjangoLedgerBaseTest):
         form = form_class()
         for name in fields:
             self.assertIn(name, form.fields, msg=f'Missing admin field: {name}')
+
+    def test_supporting_document_admin_change_fieldsets_use_readonly_fields(self):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.admin.options import flatten_fieldsets
+
+        from django_ledger_extensions.admin import SupportingDocumentAdmin
+        from django_ledger_extensions.documents import attach_supporting_document
+
+        entity = self.get_random_entity_model()
+        bill_model = entity.get_bills().first()
+        self.assertIsNotNone(bill_model)
+        doc = attach_supporting_document(
+            bill_model,
+            SimpleUploadedFile('hosting.pdf', b'pdf-bytes', content_type='application/pdf'),
+            document_type=SupportingDocumentModel.DocumentType.INVOICE,
+            description='Hosting',
+        )
+        admin = SupportingDocumentAdmin(SupportingDocumentModel, AdminSite())
+        field_names = flatten_fieldsets(admin.get_fieldsets(request=None, obj=doc))
+        readonly = set(admin.get_readonly_fields(request=None, obj=doc))
+        form = SupportingDocumentAdminForm(instance=doc)
+        for name in field_names:
+            on_form = name in form.fields
+            is_readonly = name in readonly
+            self.assertTrue(
+                on_form or is_readonly,
+                msg=f'Change field {name!r} must be on form or readonly_fields',
+            )
