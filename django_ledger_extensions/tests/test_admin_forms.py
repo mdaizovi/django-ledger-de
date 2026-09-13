@@ -138,11 +138,16 @@ class SupportingDocumentAdminFormTests(DjangoLedgerBaseTest):
         admin = SupportingDocumentAdmin(SupportingDocumentModel, AdminSite())
         field_names = flatten_fieldsets(admin.get_fieldsets(request=None, obj=doc))
         form = SupportingDocumentAdminForm(instance=doc)
+        readonly = set(admin.get_readonly_fields(request=None, obj=doc))
         for name in field_names:
-            if name == 'linked_object_display':
+            if name in form.fields:
                 continue
             self.assertIn(
                 name,
-                form.fields,
-                msg=f'Change field {name!r} must be on SupportingDocumentAdminForm',
+                readonly,
+                msg=f'Change field {name!r} must be on form or admin readonly_fields',
+            )
+            self.assertTrue(
+                hasattr(admin, name),
+                msg=f'Readonly field {name!r} must be a SupportingDocumentAdmin method',
             )

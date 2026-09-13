@@ -89,13 +89,13 @@ class SupportingDocumentAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
     list_filter = ('document_type', 'immutable')
     search_fields = ('description', 'object_id')
     readonly_fields = (
-        'checksum',
-        'content_type',
-        'object_id',
         'linked_object_display',
-        'immutable',
-        'created',
-        'updated',
+        'content_type_display',
+        'object_id_display',
+        'checksum_display',
+        'immutable_display',
+        'created_display',
+        'updated_display',
     )
 
     def get_form(self, request, obj=None, change=False, **kwargs):
@@ -131,15 +131,15 @@ class SupportingDocumentAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
                 {
                     'fields': (
                         'linked_object_display',
-                        'content_type',
-                        'object_id',
+                        'content_type_display',
+                        'object_id_display',
                         'file',
                         'document_type',
                         'description',
-                        'checksum',
-                        'immutable',
-                        'created',
-                        'updated',
+                        'checksum_display',
+                        'immutable_display',
+                        'created_display',
+                        'updated_display',
                     ),
                 },
             ),
@@ -164,6 +164,30 @@ class SupportingDocumentAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
         if target is None:
             return f'{obj.content_type.model} {obj.object_id}'
         return str(target)
+
+    @admin.display(description=_('Content type'))
+    def content_type_display(self, obj: SupportingDocumentModel):
+        return obj.content_type
+
+    @admin.display(description=_('Object ID'))
+    def object_id_display(self, obj: SupportingDocumentModel):
+        return obj.object_id
+
+    @admin.display(description=_('Checksum'))
+    def checksum_display(self, obj: SupportingDocumentModel) -> str:
+        return obj.checksum or '—'
+
+    @admin.display(description=_('Immutable'), boolean=True)
+    def immutable_display(self, obj: SupportingDocumentModel) -> bool:
+        return obj.immutable
+
+    @admin.display(description=_('Created'))
+    def created_display(self, obj: SupportingDocumentModel):
+        return obj.created
+
+    @admin.display(description=_('Updated'))
+    def updated_display(self, obj: SupportingDocumentModel):
+        return obj.updated
 
 
 @admin.register(DocumentInboxItem)
