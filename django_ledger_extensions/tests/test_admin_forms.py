@@ -62,6 +62,25 @@ class DocumentInboxAdminFormTests(DjangoLedgerBaseTest):
         self.assertTrue(form.is_valid(), msg=form.errors.as_json())
         self.assertEqual(form.cleaned_data['link_target'], bill_model)
 
+    def test_in_review_bill_appears_in_link_dropdown(self):
+        from random import choice
+
+        entity = self.get_random_entity_model()
+        bill_model = choice(list(entity.get_bills()))
+        bill_model.mark_as_review(commit=True)
+        inbox = create_inbox_item(
+            entity,
+            SimpleUploadedFile('hosting.pdf', b'pdf-bytes', content_type='application/pdf'),
+        )
+        form = DocumentInboxItemAdminForm(instance=inbox)
+        bill_ids = list(form.fields['link_bill'].queryset.values_list('pk', flat=True))
+        self.assertIn(bill_model.pk, bill_ids)
+
+    def test_link_dropdown_uses_entity_query_param_initial(self):
+        entity = self.get_random_entity_model()
+        form = DocumentInboxItemAdminForm(initial={'entity': str(entity.pk)})
+        self.assertGreater(form.fields['link_bill'].queryset.count(), 0)
+
 
 class SupportingDocumentAdminFormTests(DjangoLedgerBaseTest):
 

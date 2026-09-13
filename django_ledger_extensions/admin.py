@@ -17,6 +17,20 @@ from django_ledger_extensions.models import (
 )
 
 
+class BelegLinkAdminMixin:
+    """Reload add/change forms when Entity is picked so link-to dropdowns populate."""
+
+    class Media:
+        js = ('django_ledger_extensions/admin/beleg_link_targets.js',)
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        entity_pk = request.GET.get('entity')
+        if entity_pk:
+            initial['entity'] = entity_pk
+        return initial
+
+
 @admin.register(EntityTaxProfile)
 class EntityTaxProfileAdmin(admin.ModelAdmin):
     list_display = (
@@ -69,7 +83,7 @@ class EntityTaxProfileAdmin(admin.ModelAdmin):
 
 
 @admin.register(SupportingDocumentModel)
-class SupportingDocumentAdmin(admin.ModelAdmin):
+class SupportingDocumentAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
     form = SupportingDocumentAdminForm
     list_display = ('uuid', 'document_type', 'linked_object_display', 'immutable', 'created')
     list_filter = ('document_type', 'immutable')
@@ -96,8 +110,8 @@ class SupportingDocumentAdmin(admin.ModelAdmin):
                     _('Attach Beleg'),
                     {
                         'description': _(
-                            'Choose your entity, pick one ledger object, upload the file, then save. '
-                            'No command line required.'
+                            'Pick Entity first (page reloads). Then choose one bill, invoice, '
+                            'or journal entry and upload the file.'
                         ),
                         'fields': (
                             'entity',
@@ -153,7 +167,7 @@ class SupportingDocumentAdmin(admin.ModelAdmin):
 
 
 @admin.register(DocumentInboxItem)
-class DocumentInboxItemAdmin(admin.ModelAdmin):
+class DocumentInboxItemAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
     form = DocumentInboxItemAdminForm
     list_display = (
         'created',
@@ -209,8 +223,8 @@ class DocumentInboxItemAdmin(admin.ModelAdmin):
             _('Link to ledger object'),
             {
                 'description': _(
-                    'Weekly workflow: upload receipts here first. When you know which invoice, bill, '
-                    'or journal entry they belong to, pick one target below and click Save.'
+                    'Pick Entity first (page reloads). Then choose one invoice, bill, '
+                    'or journal entry and click Save.'
                 ),
                 'fields': (
                     'link_invoice',
