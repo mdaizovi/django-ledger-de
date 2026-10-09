@@ -344,6 +344,7 @@ Located under ``django_ledger_extensions/management/commands/``:
 - ``accounting_health_check`` — draft invoices, unlinked Belege, unmatched payments
 - ``match_bank_payments`` — link webapp payments to bank import lines
 - ``export_steuerberater`` — JSON + CSV bundle for Steuerberater handoff
+- ``export_audit_package`` — GoBD structure export (CoA, journal, trial balance, statements)
 
 Extension settings (global ``DJANGO_LEDGER_*``):
 

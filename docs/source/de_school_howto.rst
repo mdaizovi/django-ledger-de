@@ -602,6 +602,35 @@ When ``DJANGO_LEDGER_COUNTRY = 'de'`` the fork defaults to stricter posting rule
   (view in Django admin). Dev-only override: set
   ``DJANGO_LEDGER_DE_ALLOW_JOURNAL_ENTRY_UNPOST = True`` (not for production).
 
+Structure and auditability (audit export package)
+-------------------------------------------------
+
+GoBD expects a documented chart of accounts, **journal and account views**, reproducible
+**period reports**, and **machine-readable exports** for auditors.
+
+**In the ledger UI (django-ledger core):** journal entry list (chronological), account
+transaction views, balance sheet and income statement for a chosen date range.
+
+**Audit package (fork)** — one folder per period with manifest and checksums:
+
+.. code-block:: bash
+
+   python manage.py export_audit_package --entity=your-entity-slug --year=2026
+   python manage.py export_audit_package --entity=your-entity-slug --year=2026 --month=3
+
+Writes ``audit-package-<slug>-YYYY/`` (or ``-YYYY-MM/``) containing:
+
+- ``manifest.json`` — entity, period, file list with SHA-256 hashes
+- ``chart_of_accounts.csv`` / ``.json`` — full SKR/chart documentation
+- ``journal_chronological.csv`` / ``.json`` — posted lines by date
+- ``account_ledger.csv`` — same data sorted by account (account view)
+- ``trial_balance.json`` — account balances for the period
+- ``financial_statements.json`` — balance sheet (period-end) + income statement
+- ``open_items.json`` — open invoices and approved unpaid bills
+
+Re-export the same period later; posted figures should match. Use alongside
+``export_steuerberater`` for advisor handoff.
+
 Completeness and timeliness (health check)
 ------------------------------------------
 
@@ -1330,6 +1359,10 @@ Management commands reference
 
 ``export_steuerberater``
    JSON + CSV bundle for Steuerberater handoff.
+
+``export_audit_package``
+   GoBD audit folder: chart of accounts, journal, account ledger, trial balance,
+   financial statements, open items (manifest + SHA-256).
 
 Settings reference
 ------------------
