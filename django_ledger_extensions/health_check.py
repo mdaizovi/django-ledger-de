@@ -9,6 +9,11 @@ from typing import Any, Dict, List, Optional
 
 from django_ledger.models.utils import lazy_loader
 
+from django_ledger_extensions.completeness import (
+    find_journal_entry_number_gaps,
+    find_stale_unmatched_bank_lines,
+    find_unposted_journal_entries_past_timeliness,
+)
 from django_ledger_extensions.models import DocumentInboxItem, ExternalPaymentRecord
 from django_ledger_extensions.settings import get_extension_setting
 
@@ -51,8 +56,13 @@ def build_accounting_health_report(entity, *, reference: Optional[date] = None) 
     stale_cutoff = reference - timedelta(days=stale_days)
 
     report = AccountingHealthReport(entity_slug=entity.slug, checked_at=reference)
+    booking_days = int(get_extension_setting('HEALTH_CHECK_BOOKING_TIMELINESS_DAYS'))
+    cash_days = int(get_extension_setting('HEALTH_CHECK_CASH_TIMELINESS_DAYS'))
+    bank_line_days = int(get_extension_setting('HEALTH_CHECK_BANK_LINE_DAYS'))
+
     InvoiceModel = lazy_loader.get_invoice_model()
     BillModel = lazy_loader.get_bill_model()
+    JournalEntryModel = lazy_loader.get_journal_entry_model()
     StagedTransactionModel = lazy_loader.get_staged_txs_model()
 
     draft_invoices = InvoiceModel.objects.filter(
@@ -160,6 +170,74 @@ def build_accounting_health_report(entity, *, reference: Optional[date] = None) 
             )
         )
 
+    general_overdue, cash_overdue = find_unposted_journal_entries_past_timeliness(
+        entity,
+        reference=reference,
+        max_booking_age_days=booking_days,
+        cash_max_age_days=cash_days,
+    )
+    if general_overdue:
+        report.items.append(
+            HealthCheckItem(
+                code='unposted_journal_entries_overdue',
+                severity='warning',
+                message=(
+                    f'Unposted journal entries older than {booking_days} days '
+                    f'(document date vs today).'
+                ),
+                count=len(general_overdue),
+                samples=[
+                    {
+                        'uuid': str(je.pk),
+                        'je_number': je.je_number,
+                        'timestamp': je.timestamp.date().isoformat(),
+                        'description': je.description,
+                    }
+                    for je in general_overdue[:5]
+                ],
+            )
+        )
+    if cash_overdue:
+        report.items.append(
+            HealthCheckItem(
+                code='unposted_cash_entries_overdue',
+                severity='error',
+                message=(
+                    f'Unposted bank/cash journal entries older than {cash_days} day(s) '
+                    f'(book cash movements promptly).'
+                ),
+                count=len(cash_overdue),
+                samples=[
+                    {
+                        'uuid': str(je.pk),
+                        'je_number': je.je_number,
+                        'timestamp': je.timestamp.date().isoformat(),
+                    }
+                    for je in cash_overdue[:5]
+                ],
+            )
+        )
+
+    stale_bank_qs = find_stale_unmatched_bank_lines(
+        entity,
+        reference=reference,
+        max_age_days=bank_line_days,
+    )
+    stale_bank_count = stale_bank_qs.count()
+    if stale_bank_count:
+        report.items.append(
+            HealthCheckItem(
+                code='stale_unmatched_bank_lines',
+                severity='warning',
+                message=(
+                    f'Bank import lines not matched or booked within {bank_line_days} days '
+                    f'of statement date.'
+                ),
+                count=stale_bank_count,
+                samples=_sample_qs(stale_bank_qs, ['uuid', 'date_posted', 'amount', 'name']),
+            )
+        )
+
     try:
         unimported_bank = (
             StagedTransactionModel.objects.for_entity(entity)
@@ -170,16 +248,45 @@ def build_accounting_health_report(entity, *, reference: Optional[date] = None) 
         unimported_bank = 0
 
     if unimported_bank:
+        severity = 'warning' if stale_bank_count else 'info'
         report.items.append(
             HealthCheckItem(
                 code='unimported_bank_lines',
-                severity='info',
+                severity=severity,
                 message='Bank import lines not yet committed to the ledger.',
                 count=unimported_bank,
             )
         )
 
-    if not report.items:
+    je_gaps = find_journal_entry_number_gaps(entity, fiscal_year=reference.year)
+    gap_total = sum(len(v) for v in je_gaps.values())
+    if gap_total:
+        report.items.append(
+            HealthCheckItem(
+                code='journal_entry_number_gaps',
+                severity='warning',
+                message=(
+                    'Gaps in posted journal entry number sequences (review deletions or fiscal-year setup).'
+                ),
+                count=gap_total,
+                samples=[
+                    {'prefix': prefix, 'missing_sequences': missing[:10]}
+                    for prefix, missing in list(je_gaps.items())[:3]
+                ],
+            )
+        )
+
+    posted_count = JournalEntryModel.objects.filter(ledger__entity=entity, posted=True).count()
+    report.items.append(
+        HealthCheckItem(
+            code='posted_journal_entry_total',
+            severity='ok',
+            message='Posted journal entries on record (completeness snapshot).',
+            count=posted_count,
+        )
+    )
+
+    if not any(i.severity in ('warning', 'error') for i in report.items):
         report.items.append(
             HealthCheckItem(
                 code='all_clear',

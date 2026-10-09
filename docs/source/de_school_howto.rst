@@ -602,6 +602,29 @@ When ``DJANGO_LEDGER_COUNTRY = 'de'`` the fork defaults to stricter posting rule
   (view in Django admin). Dev-only override: set
   ``DJANGO_LEDGER_DE_ALLOW_JOURNAL_ENTRY_UNPOST = True`` (not for production).
 
+Completeness and timeliness (health check)
+------------------------------------------
+
+GoBD expects bookings **promptly** (often cited: ~10 days for general items, **cash/bank daily**)
+and books **reconcilable** to bank statements without unexplained numbering gaps.
+
+Run regularly (cron or monthly):
+
+.. code-block:: bash
+
+   python manage.py accounting_health_check --entity=your-entity-slug
+   python manage.py accounting_health_check --entity=your-entity-slug --json
+
+New checks (configurable via ``DJANGO_LEDGER_HEALTH_CHECK_*`` settings):
+
+- **unposted_journal_entries_overdue** — draft JEs past ``HEALTH_CHECK_BOOKING_TIMELINESS_DAYS`` (default 10)
+- **unposted_cash_entries_overdue** — unposted JEs touching bank/cash (``1200*`` / cash role), default 1 day
+- **stale_unmatched_bank_lines** — imported bank lines not booked/matched within ``HEALTH_CHECK_BANK_LINE_DAYS``
+- **journal_entry_number_gaps** — missing numbers in posted JE sequences for the check year
+- Existing: draft invoices, inbox, webapp↔bank match, approved unpaid bills
+
+Use ``match_bank_payments`` and bank import commit workflow to clear bank warnings.
+
 Belegprinzip (supporting documents and capture)
 -----------------------------------------------
 
@@ -1372,6 +1395,15 @@ default). See :doc:`regional` for resolution order.
    * - ``DJANGO_LEDGER_HEALTH_CHECK_STALE_DRAFT_DAYS``
      - ``14``
      - Flag draft invoices older than N days
+   * - ``DJANGO_LEDGER_HEALTH_CHECK_BOOKING_TIMELINESS_DAYS``
+     - ``10``
+     - Warn on unposted JEs older than N days (document date)
+   * - ``DJANGO_LEDGER_HEALTH_CHECK_CASH_TIMELINESS_DAYS``
+     - ``1``
+     - Error on unposted bank/cash JEs older than N days
+   * - ``DJANGO_LEDGER_HEALTH_CHECK_BANK_LINE_DAYS``
+     - ``10``
+     - Warn on bank import lines not matched/booked within N days
    * - ``DJANGO_LEDGER_BANK_MATCH_AMOUNT_TOLERANCE``
      - ``0.01``
      - Bank line vs payment amount tolerance (€)

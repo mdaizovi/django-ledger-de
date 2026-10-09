@@ -351,6 +351,9 @@ Extension settings (global ``DJANGO_LEDGER_*``):
 - ``REMINDER_GRACE_DAYS`` (default ``3``)
 - ``REMINDER_FROM_EMAIL`` (falls back to ``DEFAULT_FROM_EMAIL``)
 - ``HEALTH_CHECK_STALE_DRAFT_DAYS`` (default ``14``)
+- ``HEALTH_CHECK_BOOKING_TIMELINESS_DAYS`` (default ``10``)
+- ``HEALTH_CHECK_CASH_TIMELINESS_DAYS`` (default ``1``)
+- ``HEALTH_CHECK_BANK_LINE_DAYS`` (default ``10``)
 - ``BANK_MATCH_AMOUNT_TOLERANCE`` (default ``0.01``)
 - ``BANK_MATCH_DAY_TOLERANCE`` (default ``7``)
 - ``AWS_STORAGE_BUCKET_NAME``, ``AWS_S3_REGION_NAME``, ``AWS_STORAGE_LOCATION`` — S3 Belege
