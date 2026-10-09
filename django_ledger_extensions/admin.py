@@ -7,6 +7,7 @@ from django_ledger_extensions.admin_forms import DocumentInboxItemAdminForm, Sup
 from django_ledger_extensions.documents import link_inbox_item_to_object
 from django_ledger_extensions.models import (
     AccountTranslationModel,
+    AccountingAuditLog,
     AccountingReminderLog,
     AccountingReminderRule,
     DocumentInboxItem,
@@ -297,6 +298,33 @@ class DocumentInboxItemAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
             _('Beleg linked to %(target)s (supporting document %(doc)s).')
             % {'target': target, 'doc': doc.uuid},
         )
+
+
+@admin.register(AccountingAuditLog)
+class AccountingAuditLogAdmin(admin.ModelAdmin):
+    list_display = ('created', 'entity', 'action', 'summary', 'user')
+    list_filter = ('action', 'entity')
+    search_fields = ('summary', 'object_id')
+    readonly_fields = (
+        'entity',
+        'user',
+        'action',
+        'content_type',
+        'object_id',
+        'summary',
+        'details',
+        'created',
+    )
+    ordering = ('-created',)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(ExternalPaymentRecord)

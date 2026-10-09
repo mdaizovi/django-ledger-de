@@ -4,6 +4,9 @@ DE_SETTING_DEFAULTS = {
     'CURRENCY_SYMBOL': '€',
     'SPACED_CURRENCY_SYMBOL': True,
     'REQUIRE_SUPPORTING_DOCUMENT_ON_POST': True,
+    'ALLOW_JOURNAL_ENTRY_UNPOST': False,
+    'ALLOW_EDIT_POSTED_JOURNAL_ENTRY': False,
+    'LOCK_JOURNAL_ENTRY_ON_POST': True,
     'DEFAULT_COA': 'skr03',
     # EntityTaxProfile defaults for new entities (override when status is granted):
     # 'exempt' | 'small_business' | 'standard'

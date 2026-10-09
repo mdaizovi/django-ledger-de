@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 from uuid import uuid4
 
+from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
@@ -467,3 +468,51 @@ class ItemTranslationModel(CreateUpdateMixIn):
 
     def __str__(self) -> str:
         return f'{self.item_id}[{self.locale}]={self.name}'
+
+
+class AccountingAuditLog(models.Model):
+    """
+    Append-only audit trail for GoBD-style traceability (who / what / when).
+    """
+
+    class Action(models.TextChoices):
+        JOURNAL_ENTRY_POSTED = 'je_posted', _('Journal entry posted')
+        JOURNAL_ENTRY_UNPOSTED = 'je_unposted', _('Journal entry unposted')
+        ACCOUNT_CREATED = 'account_created', _('Account created')
+        ACCOUNT_UPDATED = 'account_updated', _('Account updated')
+
+    uuid = models.UUIDField(default=uuid4, editable=False, primary_key=True)
+    entity = models.ForeignKey(
+        'django_ledger.EntityModel',
+        on_delete=models.CASCADE,
+        related_name='accounting_audit_logs',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accounting_audit_logs',
+    )
+    action = models.CharField(max_length=32, choices=Action.choices)
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    object_id = models.UUIDField(null=True, blank=True)
+    summary = models.CharField(max_length=512)
+    details = models.JSONField(default=dict, blank=True)
+    created = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _('Accounting audit log')
+        verbose_name_plural = _('Accounting audit logs')
+        ordering = ('-created',)
+        indexes = [
+            models.Index(fields=['entity', 'action', '-created']),
+        ]
+
+    def __str__(self) -> str:
+        return f'{self.get_action_display()} @ {self.created:%Y-%m-%d %H:%M}'

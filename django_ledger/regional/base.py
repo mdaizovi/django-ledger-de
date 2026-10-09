@@ -71,3 +71,11 @@ class RegionalPlugin(ABC):
     def enforce_account_code_prefix(self) -> bool:
         """When False, skip US-style role prefix checks on account codes."""
         return True
+
+    def allow_journal_entry_unpost(self, journal_entry: JournalEntryModel) -> bool:
+        """When False, posted journal entries cannot be un-posted (GoBD-style immutability)."""
+        return True
+
+    def allow_edit_posted_journal_entry(self, journal_entry: JournalEntryModel) -> bool:
+        """When False, posted journal entries cannot be edited."""
+        return True

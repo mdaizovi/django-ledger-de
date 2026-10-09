@@ -589,6 +589,19 @@ Accreditation fee
    Debit   4390 10  Gebühren                150.00
    Credit  1200 00  Bank                     150.00
 
+GoBD-style immutability (Germany defaults)
+------------------------------------------
+
+When ``DJANGO_LEDGER_COUNTRY = 'de'`` the fork defaults to stricter posting rules:
+
+- Posted journal entries **cannot be un-posted or edited** (``ALLOW_JOURNAL_ENTRY_UNPOST`` /
+  ``ALLOW_EDIT_POSTED_JOURNAL_ENTRY`` default to ``False``). Correct mistakes with a
+  **new** booking or document void/reversal workflow — not by editing posted rows.
+- Journal entries are **locked automatically when posted** (``LOCK_JOURNAL_ENTRY_ON_POST``).
+- An append-only **Accounting audit log** records posting and chart-of-accounts changes
+  (view in Django admin). Dev-only override: set
+  ``DJANGO_LEDGER_DE_ALLOW_JOURNAL_ENTRY_UNPOST = True`` (not for production).
+
 Supporting documents (Belegpflicht)
 -----------------------------------
 

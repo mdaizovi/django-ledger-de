@@ -47,3 +47,11 @@ def should_enforce_account_code_prefix() -> bool:
 
 def dispatch_get_invoice_legal_notice(entity: EntityModel) -> str:
     return get_country_plugin().get_invoice_legal_notice(entity)
+
+
+def dispatch_allow_journal_entry_unpost(journal_entry: JournalEntryModel) -> bool:
+    return get_country_plugin().allow_journal_entry_unpost(journal_entry)
+
+
+def dispatch_allow_edit_posted_journal_entry(journal_entry: JournalEntryModel) -> bool:
+    return get_country_plugin().allow_edit_posted_journal_entry(journal_entry)

@@ -67,6 +67,10 @@ from django_ledger.models.signals import (
     journal_entry_unposted,
 )
 from django_ledger.models.transactions import TransactionModelQuerySet
+from django_ledger.regional.dispatch import (
+    dispatch_allow_edit_posted_journal_entry,
+    dispatch_allow_journal_entry_unpost,
+)
 from django_ledger.settings import (
     DJANGO_LEDGER_DOCUMENT_NUMBER_PADDING,
     DJANGO_LEDGER_JE_NUMBER_NO_UNIT_PREFIX,
@@ -567,6 +571,8 @@ class JournalEntryModelAbstract(CreateUpdateMixIn):
 
     def can_unpost(self) -> bool:
         """Checks if the journal entry can be un-posted."""
+        if not dispatch_allow_journal_entry_unpost(self):
+            return False
         return all([
             self.is_posted(),
             not self.ledger_is_locked(),
@@ -598,6 +604,8 @@ class JournalEntryModelAbstract(CreateUpdateMixIn):
 
     def can_edit(self) -> bool:
         """Checks if the journal entry is editable."""
+        if self.is_posted() and not dispatch_allow_edit_posted_journal_entry(self):
+            return False
         return all([
             not self.is_locked(),
 
