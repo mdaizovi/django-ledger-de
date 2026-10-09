@@ -589,6 +589,19 @@ Accreditation fee
    Debit   4390 10  Gebühren                150.00
    Credit  1200 00  Bank                     150.00
 
+Verfahrensdokumentation (process documentation)
+-----------------------------------------------
+
+GoBD requires **Anwender-, System-, and Organisationsdokumentation** (dated, versioned).
+Use the template in :doc:`verfahrensdokumentation` and refresh it when you deploy a new
+fork version or change hosting/backups.
+
+.. code-block:: bash
+
+   python manage.py build_verfahrensdokumentation_context --output=./verfahrensdokumentation-context.json
+
+Merge that JSON with your filled-in RST/PDF and store both with your company records.
+
 GoBD-style immutability (Germany defaults)
 ------------------------------------------
 
@@ -1433,6 +1446,9 @@ Management commands reference
 
 ``log_backup_verification``
    Append an off-site backup / restore-test log entry for GoBD documentation.
+
+``build_verfahrensdokumentation_context``
+   JSON snapshot (software version, GoBD controls/settings) for Verfahrensdokumentation.
 
 Settings reference
 ------------------

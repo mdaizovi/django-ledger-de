@@ -348,6 +348,7 @@ Located under ``django_ledger_extensions/management/commands/``:
 - ``export_auditor_access`` — DATEV-oriented CSV + datenbeschreibung.json for auditors
 - ``retention_report`` — Beleg retention summary + latest backup verification
 - ``log_backup_verification`` — record off-site backup / restore test
+- ``build_verfahrensdokumentation_context`` — JSON snapshot for GoBD process documentation
 
 Extension settings (global ``DJANGO_LEDGER_*``):
 
