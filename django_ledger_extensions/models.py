@@ -4,6 +4,7 @@ Country-agnostic regional infrastructure models.
 from __future__ import annotations
 
 import hashlib
+from datetime import date
 from uuid import uuid4
 
 from django.conf import settings
@@ -14,6 +15,8 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from django_ledger.models.mixins import CreateUpdateMixIn
+
+from django_ledger_extensions.retention import assign_retain_until
 from django_ledger_extensions.storage import get_beleg_storage
 
 
@@ -175,6 +178,12 @@ class SupportingDocumentModel(CreateUpdateMixIn):
         default=False,
         help_text=_('When set, the file cannot be replaced or deleted.'),
     )
+    retain_until = models.DateField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text=_('Earliest date this Beleg may be reviewed for archival (GoBD retention; not auto-deleted).'),
+    )
 
     class Meta:
         verbose_name = _('Supporting Document')
@@ -225,10 +234,53 @@ class SupportingDocumentModel(CreateUpdateMixIn):
 
         super().save(*args, **kwargs)
 
+        if not self.retain_until:
+            retain_until = assign_retain_until(self)
+            SupportingDocumentModel.objects.filter(pk=self.pk).update(retain_until=retain_until)
+            self.retain_until = retain_until
+
     def delete(self, *args, **kwargs):
         if self.immutable:
             raise ValidationError(_('Immutable supporting documents cannot be deleted.'))
+        if self.retain_until and self.retain_until > date.today():
+            raise ValidationError(
+                _('This Beleg is still within the configured retention period (until %(date)s).'),
+                params={'date': self.retain_until.isoformat()},
+            )
         return super().delete(*args, **kwargs)
+
+
+class BackupVerificationLog(CreateUpdateMixIn):
+    """
+    Record that backups were tested and stored off-site (GoBD retention / availability).
+    """
+
+    uuid = models.UUIDField(default=uuid4, editable=False, primary_key=True)
+    entity = models.ForeignKey(
+        'django_ledger.EntityModel',
+        on_delete=models.CASCADE,
+        related_name='backup_verification_logs',
+        null=True,
+        blank=True,
+        help_text=_('Optional — leave blank for whole-system backup notes.'),
+    )
+    verified_at = models.DateField()
+    storage_location = models.CharField(
+        max_length=255,
+        help_text=_('Second location or provider (e.g. S3 bucket, off-site copy).'),
+    )
+    restore_tested = models.BooleanField(
+        default=False,
+        help_text=_('True if a restore or spot-check was performed, not only backup creation.'),
+    )
+    notes = models.TextField(blank=True, default='')
+
+    class Meta:
+        verbose_name = _('Backup verification log')
+        ordering = ('-verified_at',)
+
+    def __str__(self) -> str:
+        return f'BackupVerification<{self.verified_at}:{self.storage_location}>'
 
 
 def document_inbox_upload_to(instance, filename: str) -> str:

@@ -654,6 +654,41 @@ Creates ``auditor-access-<slug>-YYYY/`` with:
 This is **not** native DATEV EXTF; your Steuerberater should confirm import mapping.
 For complex multi-line journals, review *Gegenkonto* in DATEV or use ``buchungen_doppelt.csv``.
 
+Retention and backups (GoBD Aufbewahrung)
+-----------------------------------------
+
+GoBD expects **8 years** for Belege and **10 years** for books / bank statements (your
+Steuerberater may specify longer periods). Backups must be **available** and stored
+**off-site**; access to deletion must be controlled.
+
+**What the software does**
+
+- Each **supporting document** gets a read-only ``retain_until`` date from document type
+  and ``created`` (receipts/invoices → ``RETENTION_BELEG_YEARS``, default 8; bank
+  statements and contracts → ``RETENTION_BOOKS_YEARS``, default 10).
+- **No automatic deletion** — use ``retention_report`` to see counts still within retention
+  vs eligible for archival review after ``retain_until``.
+- **Delete guard**: non-immutable Belege cannot be deleted while ``retain_until`` is still
+  in the future (immutable Belege remain non-deletable regardless).
+- **Backup verification log** (admin or CLI) documents off-site location and whether a
+  restore test was done.
+- ``accounting_health_check`` warns if no verification was logged within
+  ``BACKUP_VERIFICATION_MAX_AGE_DAYS`` (default 90).
+
+.. code-block:: bash
+
+   python manage.py retention_report --entity=your-entity-slug
+   python manage.py retention_report --entity=your-entity-slug --json
+   python manage.py log_backup_verification --verified-at=2026-10-01 \
+     --storage-location="S3 eu-central-1 / off-site copy" --restore-tested
+
+**Still your process**
+
+- Database and file storage **backup schedule**, encryption, and **second location** are
+  hosting/ops (document in Verfahrensdokumentation).
+- Legal holds, tax audits, or longer statutory periods may require keeping Belege longer
+  than ``retain_until`` — treat the field as earliest review date, not “safe to destroy”.
+
 Completeness and timeliness (health check)
 ------------------------------------------
 
@@ -673,6 +708,7 @@ New checks (configurable via ``DJANGO_LEDGER_HEALTH_CHECK_*`` settings):
 - **unposted_cash_entries_overdue** — unposted JEs touching bank/cash (``1200*`` / cash role), default 1 day
 - **stale_unmatched_bank_lines** — imported bank lines not booked/matched within ``HEALTH_CHECK_BANK_LINE_DAYS``
 - **journal_entry_number_gaps** — missing numbers in posted JE sequences for the check year
+- **backup_verification_stale** — no ``BackupVerificationLog`` within ``BACKUP_VERIFICATION_MAX_AGE_DAYS``
 - Existing: draft invoices, inbox, webapp↔bank match, approved unpaid bills
 
 Use ``match_bank_payments`` and bank import commit workflow to clear bank warnings.
@@ -1390,6 +1426,13 @@ Management commands reference
 ``export_auditor_access``
    Auditor / Steuerberater ZIP folder: DATEV Buchungsstapel CSV, datenbeschreibung.json,
    Konten, Belege, double-entry CSV, Steuerberater JSON.
+
+``retention_report``
+   Count supporting documents within retention vs eligible for archival review; shows latest
+   backup verification (no deletes).
+
+``log_backup_verification``
+   Append an off-site backup / restore-test log entry for GoBD documentation.
 
 Settings reference
 ------------------

@@ -346,6 +346,8 @@ Located under ``django_ledger_extensions/management/commands/``:
 - ``export_steuerberater`` — JSON + CSV bundle for Steuerberater handoff
 - ``export_audit_package`` — GoBD structure export (CoA, journal, trial balance, statements)
 - ``export_auditor_access`` — DATEV-oriented CSV + datenbeschreibung.json for auditors
+- ``retention_report`` — Beleg retention summary + latest backup verification
+- ``log_backup_verification`` — record off-site backup / restore test
 
 Extension settings (global ``DJANGO_LEDGER_*``):
 
@@ -356,6 +358,9 @@ Extension settings (global ``DJANGO_LEDGER_*``):
 - ``HEALTH_CHECK_BOOKING_TIMELINESS_DAYS`` (default ``10``)
 - ``HEALTH_CHECK_CASH_TIMELINESS_DAYS`` (default ``1``)
 - ``HEALTH_CHECK_BANK_LINE_DAYS`` (default ``10``)
+- ``RETENTION_BELEG_YEARS`` (default ``8``)
+- ``RETENTION_BOOKS_YEARS`` (default ``10``)
+- ``BACKUP_VERIFICATION_MAX_AGE_DAYS`` (default ``90``)
 - ``BANK_MATCH_AMOUNT_TOLERANCE`` (default ``0.01``)
 - ``BANK_MATCH_DAY_TOLERANCE`` (default ``7``)
 - ``AWS_STORAGE_BUCKET_NAME``, ``AWS_S3_REGION_NAME``, ``AWS_STORAGE_LOCATION`` — S3 Belege

@@ -10,6 +10,7 @@ from django_ledger_extensions.models import (
     AccountingAuditLog,
     AccountingReminderLog,
     AccountingReminderRule,
+    BackupVerificationLog,
     DocumentInboxItem,
     EntityTaxProfile,
     ExternalPaymentRecord,
@@ -92,6 +93,7 @@ class SupportingDocumentAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
         'capture_method',
         'linked_object_display',
         'immutable',
+        'retain_until',
         'created',
     )
     list_filter = ('document_type', 'capture_method', 'immutable')
@@ -102,6 +104,7 @@ class SupportingDocumentAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
         'object_id_display',
         'checksum_display',
         'immutable_display',
+        'retain_until',
         'created_display',
         'updated_display',
     )
@@ -153,6 +156,7 @@ class SupportingDocumentAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
                         'checksum_display',
                         'structured_checksum_display',
                         'immutable_display',
+                        'retain_until',
                         'created_display',
                         'updated_display',
                     ),
@@ -355,6 +359,14 @@ class AccountingAuditLogAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(BackupVerificationLog)
+class BackupVerificationLogAdmin(admin.ModelAdmin):
+    list_display = ('verified_at', 'entity', 'storage_location', 'restore_tested', 'created')
+    list_filter = ('restore_tested', 'entity')
+    search_fields = ('storage_location', 'notes')
+    date_hierarchy = 'verified_at'
 
 
 @admin.register(ExternalPaymentRecord)

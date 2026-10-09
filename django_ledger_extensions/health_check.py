@@ -15,6 +15,7 @@ from django_ledger_extensions.completeness import (
     find_unposted_journal_entries_past_timeliness,
 )
 from django_ledger_extensions.models import DocumentInboxItem, ExternalPaymentRecord
+from django_ledger_extensions.retention_report import latest_backup_verification
 from django_ledger_extensions.settings import get_extension_setting
 
 
@@ -285,6 +286,43 @@ def build_accounting_health_report(entity, *, reference: Optional[date] = None) 
             count=posted_count,
         )
     )
+
+    backup_max_age = int(get_extension_setting('BACKUP_VERIFICATION_MAX_AGE_DAYS'))
+    backup_cutoff = reference - timedelta(days=backup_max_age)
+    backup_log = latest_backup_verification(entity=entity)
+    if not backup_log or backup_log.verified_at < backup_cutoff:
+        report.items.append(
+            HealthCheckItem(
+                code='backup_verification_stale',
+                severity='warning',
+                message=(
+                    f'No backup verification logged within {backup_max_age} days '
+                    '(use admin or log_backup_verification).'
+                ),
+                count=0,
+                samples=[
+                    {
+                        'last_verified_at': backup_log.verified_at.isoformat() if backup_log else None,
+                        'storage_location': backup_log.storage_location if backup_log else None,
+                    }
+                ],
+            )
+        )
+    else:
+        report.items.append(
+            HealthCheckItem(
+                code='backup_verification_current',
+                severity='ok',
+                message='Backup verification on record for retention / availability.',
+                count=1,
+                samples=[
+                    {
+                        'verified_at': backup_log.verified_at.isoformat(),
+                        'restore_tested': backup_log.restore_tested,
+                    }
+                ],
+            )
+        )
 
     if not any(i.severity in ('warning', 'error') for i in report.items):
         report.items.append(
