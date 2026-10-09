@@ -602,6 +602,31 @@ When ``DJANGO_LEDGER_COUNTRY = 'de'`` the fork defaults to stricter posting rule
   (view in Django admin). Dev-only override: set
   ``DJANGO_LEDGER_DE_ALLOW_JOURNAL_ENTRY_UNPOST = True`` (not for production).
 
+Belegprinzip (supporting documents and capture)
+-----------------------------------------------
+
+GoBD expects every booking to trace back to an **unaltered** Beleg and to document
+**how** it was captured.
+
+**What the software stores**
+
+- **Supporting documents** on invoices, bills, and journal entries (SHA-256 checksum,
+  original filename, MIME type). Files are not replaced after posting (immutable flag).
+- **Capture method** on each Beleg: scan, photo, upload, email, API, or structured
+  e-invoice — set in admin when uploading or inferred from inbox **Source** (camera → photo).
+- **Incoming e-invoices**: choose document type **Incoming e-invoice** and attach the
+  **structured XML** (XRechnung/ZUGFeRD) in **Structured file**, plus a PDF/image in
+  **File** when you have a human-readable copy.
+- **Document inbox** can hold the structured file until you link the Beleg to a bill/JE.
+- **Lookup**: ``supporting_documents_for(bill_or_je)`` in Python; Steuerberater export
+  ``beleg_index`` includes checksums, capture method, and structured file paths.
+
+**Still your process / not automatic**
+
+- Peppol/e-invoice **reception** pipeline (automatic XML ingest) is not included — upload XML manually or via your own integration.
+- Outgoing customer invoices as XRechnung are not generated here.
+- Ledger UI does not yet show a Beleg panel on every bill screen (use admin or export).
+
 Supporting documents (Belegpflicht)
 -----------------------------------
 

@@ -91,11 +91,16 @@ def build_steuerberater_bundle(
             {
                 'document_uuid': str(doc.uuid),
                 'document_type': doc.document_type,
+                'capture_method': doc.capture_method,
                 'target_type': doc.content_type.model,
                 'target_id': target_id,
                 'description': doc.description,
                 'checksum': doc.checksum,
+                'structured_checksum': doc.structured_checksum,
+                'original_filename': doc.original_filename,
+                'content_mime_type': doc.content_mime_type,
                 'file': doc.file.name,
+                'structured_file': doc.structured_file.name if doc.structured_file else '',
             }
         )
 

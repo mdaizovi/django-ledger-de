@@ -21,6 +21,21 @@ def supporting_document_upload_to(instance, filename: str) -> str:
     return f'django_ledger/supporting_documents/{instance.uuid}/{filename}'
 
 
+def structured_beleg_upload_to(instance, filename: str) -> str:
+    return f'django_ledger/supporting_documents/{instance.uuid}/structured/{filename}'
+
+
+class BelegCaptureMethod(models.TextChoices):
+    """How the Beleg entered the system (GoBD Belegprinzip / capture documentation)."""
+
+    SCAN = 'scan', _('Scanner or PDF')
+    PHOTO = 'photo', _('Photo (camera)')
+    FILE_UPLOAD = 'upload', _('Manual file upload')
+    EMAIL = 'email', _('Email import')
+    API = 'api', _('API or webhook')
+    E_INVOICE = 'e_invoice', _('Structured e-invoice (XRechnung/ZUGFeRD XML)')
+
+
 class EntityTaxProfile(CreateUpdateMixIn):
     """
     Entity-level tax configuration consumed by country plugins.
@@ -114,6 +129,7 @@ class SupportingDocumentModel(CreateUpdateMixIn):
     class DocumentType(models.TextChoices):
         RECEIPT = 'receipt', _('Receipt')
         INVOICE = 'invoice', _('Invoice')
+        EINVOICE = 'einvoice', _('Incoming e-invoice')
         BANK_STATEMENT = 'bank_statement', _('Bank statement')
         CONTRACT = 'contract', _('Contract')
         OTHER = 'other', _('Other')
@@ -127,14 +143,34 @@ class SupportingDocumentModel(CreateUpdateMixIn):
         upload_to=supporting_document_upload_to,
         storage=get_beleg_storage,
         max_length=512,
+        help_text=_('Human-readable copy (PDF, image, or rendered e-invoice). Stored unchanged.'),
+    )
+    structured_file = models.FileField(
+        upload_to=structured_beleg_upload_to,
+        storage=get_beleg_storage,
+        max_length=512,
+        blank=True,
+        help_text=_(
+            'Original structured e-invoice file (XRechnung/ZUGFeRD XML). Required for document type '
+            '“Incoming e-invoice”; keep alongside PDF when both exist.'
+        ),
     )
     document_type = models.CharField(
         max_length=32,
         choices=DocumentType.choices,
         default=DocumentType.OTHER,
     )
+    capture_method = models.CharField(
+        max_length=32,
+        choices=BelegCaptureMethod.choices,
+        default=BelegCaptureMethod.FILE_UPLOAD,
+        help_text=_('How this Beleg was captured (scan, photo, e-invoice, etc.).'),
+    )
+    original_filename = models.CharField(max_length=512, blank=True, default='')
+    content_mime_type = models.CharField(max_length=128, blank=True, default='')
     description = models.CharField(max_length=512, blank=True, default='')
     checksum = models.CharField(max_length=64, blank=True, default='')
+    structured_checksum = models.CharField(max_length=64, blank=True, default='')
     immutable = models.BooleanField(
         default=False,
         help_text=_('When set, the file cannot be replaced or deleted.'),
@@ -149,12 +185,44 @@ class SupportingDocumentModel(CreateUpdateMixIn):
     def __str__(self) -> str:
         return f'SupportingDocument<{self.uuid}:{self.document_type}>'
 
+    def clean(self):
+        super().clean()
+        if self.document_type == self.DocumentType.EINVOICE and not self.structured_file:
+            raise ValidationError(
+                {
+                    'structured_file': _(
+                        'Incoming e-invoices must include the original structured file (XML), not PDF only.'
+                    ),
+                }
+            )
+
+    @staticmethod
+    def _checksum_field(file_field) -> str:
+        hasher = hashlib.sha256()
+        for chunk in file_field.chunks():
+            hasher.update(chunk)
+        return hasher.hexdigest()
+
     def save(self, *args, **kwargs):
-        if self.file and not self.checksum:
-            hasher = hashlib.sha256()
-            for chunk in self.file.chunks():
-                hasher.update(chunk)
-            self.checksum = hasher.hexdigest()
+        if self.pk:
+            previous = SupportingDocumentModel.objects.filter(pk=self.pk).first()
+            if previous and previous.immutable:
+                if previous.checksum and self.file and previous.checksum != self._checksum_field(self.file):
+                    raise ValidationError(_('Immutable supporting documents cannot be replaced.'))
+                if previous.structured_checksum and self.structured_file:
+                    if previous.structured_checksum != self._checksum_field(self.structured_file):
+                        raise ValidationError(_('Immutable structured e-invoice files cannot be replaced.'))
+
+        if self.file:
+            if not self.original_filename:
+                self.original_filename = self.file.name.rsplit('/', 1)[-1]
+            if hasattr(self.file, 'content_type') and self.file.content_type:
+                self.content_mime_type = self.file.content_type
+            if not self.checksum:
+                self.checksum = self._checksum_field(self.file)
+        if self.structured_file and not self.structured_checksum:
+            self.structured_checksum = self._checksum_field(self.structured_file)
+
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
@@ -165,6 +233,10 @@ class SupportingDocumentModel(CreateUpdateMixIn):
 
 def document_inbox_upload_to(instance, filename: str) -> str:
     return f'django_ledger/document_inbox/{instance.uuid}/{filename}'
+
+
+def document_inbox_structured_upload_to(instance, filename: str) -> str:
+    return f'django_ledger/document_inbox/{instance.uuid}/structured/{filename}'
 
 
 class DocumentInboxItem(CreateUpdateMixIn):
@@ -193,7 +265,20 @@ class DocumentInboxItem(CreateUpdateMixIn):
         related_name='document_inbox_items',
     )
     file = models.FileField(upload_to=document_inbox_upload_to, storage=get_beleg_storage, max_length=512)
+    structured_file = models.FileField(
+        upload_to=document_inbox_structured_upload_to,
+        storage=get_beleg_storage,
+        max_length=512,
+        blank=True,
+    )
     source = models.CharField(max_length=32, choices=Source.choices, default=Source.UPLOAD)
+    capture_method = models.CharField(
+        max_length=32,
+        choices=BelegCaptureMethod.choices,
+        blank=True,
+        default='',
+        help_text=_('Leave blank to infer from Source (camera → photo, email → email, …).'),
+    )
     status = models.CharField(max_length=32, choices=Status.choices, default=Status.UNLINKED)
     document_type = models.CharField(
         max_length=32,
@@ -213,6 +298,7 @@ class DocumentInboxItem(CreateUpdateMixIn):
     )
     external_id = models.CharField(max_length=255, blank=True, default='')
     checksum = models.CharField(max_length=64, blank=True, default='')
+    structured_checksum = models.CharField(max_length=64, blank=True, default='')
     linked_content_type = models.ForeignKey(
         ContentType,
         on_delete=models.SET_NULL,
@@ -243,12 +329,30 @@ class DocumentInboxItem(CreateUpdateMixIn):
         return f'Inbox<{self.uuid}:{self.status}>'
 
     def save(self, *args, **kwargs):
+        if not self.capture_method:
+            self.capture_method = self.default_capture_method_for_source(self.source)
         if self.file and not self.checksum:
             hasher = hashlib.sha256()
             for chunk in self.file.chunks():
                 hasher.update(chunk)
             self.checksum = hasher.hexdigest()
+        if self.structured_file and not self.structured_checksum:
+            hasher = hashlib.sha256()
+            for chunk in self.structured_file.chunks():
+                hasher.update(chunk)
+            self.structured_checksum = hasher.hexdigest()
         super().save(*args, **kwargs)
+
+    @classmethod
+    def default_capture_method_for_source(cls, source: str) -> str:
+        mapping = {
+            cls.Source.CAMERA: BelegCaptureMethod.PHOTO,
+            cls.Source.EMAIL: BelegCaptureMethod.EMAIL,
+            cls.Source.API: BelegCaptureMethod.API,
+            cls.Source.WEBHOOK: BelegCaptureMethod.API,
+            cls.Source.UPLOAD: BelegCaptureMethod.FILE_UPLOAD,
+        }
+        return mapping.get(source, BelegCaptureMethod.FILE_UPLOAD)
 
 
 class ExternalPaymentRecord(CreateUpdateMixIn):

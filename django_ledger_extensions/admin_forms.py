@@ -273,7 +273,9 @@ class SupportingDocumentAdminForm(forms.ModelForm):
         model = SupportingDocumentModel
         fields = (
             'file',
+            'structured_file',
             'document_type',
+            'capture_method',
             'description',
         )
 
