@@ -345,6 +345,7 @@ Located under ``django_ledger_extensions/management/commands/``:
 - ``match_bank_payments`` — link webapp payments to bank import lines
 - ``export_steuerberater`` — JSON + CSV bundle for Steuerberater handoff
 - ``export_audit_package`` — GoBD structure export (CoA, journal, trial balance, statements)
+- ``export_auditor_access`` — DATEV-oriented CSV + datenbeschreibung.json for auditors
 
 Extension settings (global ``DJANGO_LEDGER_*``):
 

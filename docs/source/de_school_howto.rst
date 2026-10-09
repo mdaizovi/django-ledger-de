@@ -631,6 +631,29 @@ Writes ``audit-package-<slug>-YYYY/`` (or ``-YYYY-MM/``) containing:
 Re-export the same period later; posted figures should match. Use alongside
 ``export_steuerberater`` for advisor handoff.
 
+Data access for auditors (DATEV-oriented export)
+------------------------------------------------
+
+GoBD / Betriebsprüfung: provide **machine-readable data on medium** with a **description file**.
+
+.. code-block:: bash
+
+   python manage.py export_auditor_access --entity=your-entity-slug --year=2026
+   python manage.py export_auditor_access --entity=your-entity-slug --year=2026 --month=3
+
+Creates ``auditor-access-<slug>-YYYY/`` with:
+
+- ``datenbeschreibung.json`` — German column meanings, encoding, DATEV import notes
+- ``datev_buchungsstapel.csv`` — semicolon-separated, German decimal comma (DATEV import assistant)
+- ``buchungen_doppelt.csv`` — full double-entry export (comma-separated)
+- ``konten.csv`` — SKR03 chart
+- ``belege.csv`` — Beleg index for the period
+- ``steuerberater_bundle.json`` — same JSON as ``export_steuerberater`` (VAT summary included)
+- ``manifest.json`` — SHA-256 checksums
+
+This is **not** native DATEV EXTF; your Steuerberater should confirm import mapping.
+For complex multi-line journals, review *Gegenkonto* in DATEV or use ``buchungen_doppelt.csv``.
+
 Completeness and timeliness (health check)
 ------------------------------------------
 
@@ -1363,6 +1386,10 @@ Management commands reference
 ``export_audit_package``
    GoBD audit folder: chart of accounts, journal, account ledger, trial balance,
    financial statements, open items (manifest + SHA-256).
+
+``export_auditor_access``
+   Auditor / Steuerberater ZIP folder: DATEV Buchungsstapel CSV, datenbeschreibung.json,
+   Konten, Belege, double-entry CSV, Steuerberater JSON.
 
 Settings reference
 ------------------
