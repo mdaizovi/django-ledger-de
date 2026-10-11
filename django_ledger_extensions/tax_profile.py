@@ -6,7 +6,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from django_ledger_extensions.models import EntityTaxProfile
+from django.apps import apps
+
+from django_ledger.regional.dispatch import dispatch_get_invoice_legal_notice
+
+REGIME_STANDARD = 'standard'
+REGIME_SMALL_BUSINESS = 'small_business'
+REGIME_EXEMPT = 'exempt'
 
 
 @dataclass(frozen=True)
@@ -29,15 +35,15 @@ class EntityTaxRegimeBehavior:
 
 
 _COMPLIANCE_HINTS = {
-    EntityTaxProfile.TaxRegime.EXEMPT: (
+    REGIME_EXEMPT: (
         'No USt-Voranmeldung. Exempt education/training supplies under § 4 UStG — '
         'invoice amounts are gross with no VAT charged.'
     ),
-    EntityTaxProfile.TaxRegime.SMALL_BUSINESS: (
+    REGIME_SMALL_BUSINESS: (
         'No USt-Voranmeldung. Monitor turnover quarterly against § 19 UStG '
         'Kleinunternehmer limits (run vat_quarterly_report).'
     ),
-    EntityTaxProfile.TaxRegime.STANDARD: (
+    REGIME_STANDARD: (
         'Standard VAT (Regelbesteuerung). File USt-Voranmeldung quarterly and run '
         'vat_quarterly_report for Vorsteuer, Umsatzsteuer, and Zahllast.'
     ),
@@ -52,13 +58,11 @@ def resolve_invoice_legal_notice(profile) -> str:
     if override:
         return override
 
-    from django_ledger.regional.dispatch import dispatch_get_invoice_legal_notice
-
     return dispatch_get_invoice_legal_notice(profile.entity) or ''
 
 
 def build_tax_regime_behavior(
-    profile: EntityTaxProfile,
+    profile,
     *,
     invoice_legal_notice: str | None = None,
 ) -> EntityTaxRegimeBehavior:
@@ -68,10 +72,10 @@ def build_tax_regime_behavior(
     return EntityTaxRegimeBehavior(
         tax_regime=regime,
         tax_regime_label=str(profile.get_tax_regime_display()),
-        charges_vat=regime == EntityTaxProfile.TaxRegime.STANDARD,
-        show_vat_amounts_on_invoices=regime == EntityTaxProfile.TaxRegime.STANDARD,
-        requires_vat_quarterly_filing=regime == EntityTaxProfile.TaxRegime.STANDARD,
-        tracks_kleinunternehmer_turnover=regime == EntityTaxProfile.TaxRegime.SMALL_BUSINESS,
+        charges_vat=regime == REGIME_STANDARD,
+        show_vat_amounts_on_invoices=regime == REGIME_STANDARD,
+        requires_vat_quarterly_filing=regime == REGIME_STANDARD,
+        tracks_kleinunternehmer_turnover=regime == REGIME_SMALL_BUSINESS,
         show_invoice_legal_notice=profile.show_invoice_legal_notice,
         invoice_legal_notice=invoice_legal_notice,
         compliance_hint=_COMPLIANCE_HINTS.get(regime, ''),
@@ -79,9 +83,9 @@ def build_tax_regime_behavior(
 
 
 def get_entity_tax_regime_behavior(entity) -> Optional[EntityTaxRegimeBehavior]:
-    try:
-        profile = entity.tax_profile
-    except EntityTaxProfile.DoesNotExist:
+    # apps.get_model avoids importing EntityTaxProfile while models.py loads tax_profile.
+    EntityTaxProfile = apps.get_model('django_ledger_extensions', 'EntityTaxProfile')
+    profile = EntityTaxProfile.objects.filter(entity=entity).first()
+    if profile is None:
         return None
-
     return build_tax_regime_behavior(profile)

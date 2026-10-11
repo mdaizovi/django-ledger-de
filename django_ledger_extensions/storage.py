@@ -18,6 +18,11 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.storage import FileSystemStorage, default_storage
 
+try:
+    from storages.backends.s3boto3 import S3Boto3Storage
+except ImportError:
+    S3Boto3Storage = None  # optional extra; required when DJANGO_LEDGER_AWS_STORAGE_BUCKET_NAME is set
+
 _storage_cache: dict[str, object] = {}
 
 
@@ -33,13 +38,11 @@ def _build_storage(cache_key: str):
     if cache_key == '__local__':
         return default_storage if default_storage else FileSystemStorage()
 
-    try:
-        from storages.backends.s3boto3 import S3Boto3Storage
-    except ImportError as exc:
+    if S3Boto3Storage is None:
         raise ImproperlyConfigured(
             'DJANGO_LEDGER_AWS_STORAGE_BUCKET_NAME is set but django-storages is not '
             'installed. Run: pip install "django-ledger[s3]" or pip install django-storages boto3'
-        ) from exc
+        )
 
     region = getattr(settings, 'DJANGO_LEDGER_AWS_S3_REGION_NAME', 'eu-central-1')
     location = getattr(settings, 'DJANGO_LEDGER_AWS_STORAGE_LOCATION', 'belege')

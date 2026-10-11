@@ -18,6 +18,10 @@ from django_ledger.models.mixins import CreateUpdateMixIn
 
 from django_ledger_extensions.retention import assign_retain_until
 from django_ledger_extensions.storage import get_beleg_storage
+from django_ledger_extensions.tax_profile import (
+    get_entity_tax_regime_behavior,
+    resolve_invoice_legal_notice,
+)
 
 
 def supporting_document_upload_to(instance, filename: str) -> str:
@@ -98,13 +102,9 @@ class EntityTaxProfile(CreateUpdateMixIn):
         return f'TaxProfile<{self.entity_id}:{self.tax_regime}>'
 
     def get_invoice_legal_notice(self) -> str:
-        from django_ledger_extensions.tax_profile import resolve_invoice_legal_notice
-
         return resolve_invoice_legal_notice(self)
 
     def get_tax_regime_behavior(self):
-        from django_ledger_extensions.tax_profile import get_entity_tax_regime_behavior
-
         return get_entity_tax_regime_behavior(self.entity)
 
     def clean(self):

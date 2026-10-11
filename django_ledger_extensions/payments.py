@@ -15,7 +15,11 @@ from django_ledger.models.mixins import PaymentTermsMixIn
 from django_ledger.models.utils import lazy_loader
 
 from django_ledger_extensions.documents import create_inbox_item, link_inbox_item_to_object
-from django_ledger_extensions.models import DocumentInboxItem, ExternalPaymentRecord
+from django_ledger_extensions.models import (
+    DocumentInboxItem,
+    ExternalPaymentRecord,
+    SupportingDocumentModel,
+)
 
 
 @dataclass
@@ -158,8 +162,6 @@ def import_external_payment(entity, payload: ExternalPaymentPayload) -> External
         record.error_message = ''
 
         if payload.receipt_file is not None:
-            from django_ledger_extensions.models import SupportingDocumentModel
-
             inbox = create_inbox_item(
                 entity,
                 payload.receipt_file,
