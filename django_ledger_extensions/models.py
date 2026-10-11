@@ -4,8 +4,10 @@ Country-agnostic regional infrastructure models.
 from __future__ import annotations
 
 import hashlib
+from datetime import date
 from uuid import uuid4
 
+from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
@@ -13,11 +15,32 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from django_ledger.models.mixins import CreateUpdateMixIn
+
+from django_ledger_extensions.retention import assign_retain_until
 from django_ledger_extensions.storage import get_beleg_storage
+from django_ledger_extensions.tax_profile import (
+    get_entity_tax_regime_behavior,
+    resolve_invoice_legal_notice,
+)
 
 
 def supporting_document_upload_to(instance, filename: str) -> str:
     return f'django_ledger/supporting_documents/{instance.uuid}/{filename}'
+
+
+def structured_beleg_upload_to(instance, filename: str) -> str:
+    return f'django_ledger/supporting_documents/{instance.uuid}/structured/{filename}'
+
+
+class BelegCaptureMethod(models.TextChoices):
+    """How the Beleg entered the system (GoBD Belegprinzip / capture documentation)."""
+
+    SCAN = 'scan', _('Scanner or PDF')
+    PHOTO = 'photo', _('Photo (camera)')
+    FILE_UPLOAD = 'upload', _('Manual file upload')
+    EMAIL = 'email', _('Email import')
+    API = 'api', _('API or webhook')
+    E_INVOICE = 'e_invoice', _('Structured e-invoice (XRechnung/ZUGFeRD XML)')
 
 
 class EntityTaxProfile(CreateUpdateMixIn):
@@ -79,13 +102,9 @@ class EntityTaxProfile(CreateUpdateMixIn):
         return f'TaxProfile<{self.entity_id}:{self.tax_regime}>'
 
     def get_invoice_legal_notice(self) -> str:
-        from django_ledger_extensions.tax_profile import resolve_invoice_legal_notice
-
         return resolve_invoice_legal_notice(self)
 
     def get_tax_regime_behavior(self):
-        from django_ledger_extensions.tax_profile import get_entity_tax_regime_behavior
-
         return get_entity_tax_regime_behavior(self.entity)
 
     def clean(self):
@@ -113,6 +132,7 @@ class SupportingDocumentModel(CreateUpdateMixIn):
     class DocumentType(models.TextChoices):
         RECEIPT = 'receipt', _('Receipt')
         INVOICE = 'invoice', _('Invoice')
+        EINVOICE = 'einvoice', _('Incoming e-invoice')
         BANK_STATEMENT = 'bank_statement', _('Bank statement')
         CONTRACT = 'contract', _('Contract')
         OTHER = 'other', _('Other')
@@ -126,17 +146,43 @@ class SupportingDocumentModel(CreateUpdateMixIn):
         upload_to=supporting_document_upload_to,
         storage=get_beleg_storage,
         max_length=512,
+        help_text=_('Human-readable copy (PDF, image, or rendered e-invoice). Stored unchanged.'),
+    )
+    structured_file = models.FileField(
+        upload_to=structured_beleg_upload_to,
+        storage=get_beleg_storage,
+        max_length=512,
+        blank=True,
+        help_text=_(
+            'Original structured e-invoice file (XRechnung/ZUGFeRD XML). Required for document type '
+            '“Incoming e-invoice”; keep alongside PDF when both exist.'
+        ),
     )
     document_type = models.CharField(
         max_length=32,
         choices=DocumentType.choices,
         default=DocumentType.OTHER,
     )
+    capture_method = models.CharField(
+        max_length=32,
+        choices=BelegCaptureMethod.choices,
+        default=BelegCaptureMethod.FILE_UPLOAD,
+        help_text=_('How this Beleg was captured (scan, photo, e-invoice, etc.).'),
+    )
+    original_filename = models.CharField(max_length=512, blank=True, default='')
+    content_mime_type = models.CharField(max_length=128, blank=True, default='')
     description = models.CharField(max_length=512, blank=True, default='')
     checksum = models.CharField(max_length=64, blank=True, default='')
+    structured_checksum = models.CharField(max_length=64, blank=True, default='')
     immutable = models.BooleanField(
         default=False,
         help_text=_('When set, the file cannot be replaced or deleted.'),
+    )
+    retain_until = models.DateField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text=_('Earliest date this Beleg may be reviewed for archival (GoBD retention; not auto-deleted).'),
     )
 
     class Meta:
@@ -148,22 +194,101 @@ class SupportingDocumentModel(CreateUpdateMixIn):
     def __str__(self) -> str:
         return f'SupportingDocument<{self.uuid}:{self.document_type}>'
 
+    def clean(self):
+        super().clean()
+        if self.document_type == self.DocumentType.EINVOICE and not self.structured_file:
+            raise ValidationError(
+                {
+                    'structured_file': _(
+                        'Incoming e-invoices must include the original structured file (XML), not PDF only.'
+                    ),
+                }
+            )
+
+    @staticmethod
+    def _checksum_field(file_field) -> str:
+        hasher = hashlib.sha256()
+        for chunk in file_field.chunks():
+            hasher.update(chunk)
+        return hasher.hexdigest()
+
     def save(self, *args, **kwargs):
-        if self.file and not self.checksum:
-            hasher = hashlib.sha256()
-            for chunk in self.file.chunks():
-                hasher.update(chunk)
-            self.checksum = hasher.hexdigest()
+        if self.pk:
+            previous = SupportingDocumentModel.objects.filter(pk=self.pk).first()
+            if previous and previous.immutable:
+                if previous.checksum and self.file and previous.checksum != self._checksum_field(self.file):
+                    raise ValidationError(_('Immutable supporting documents cannot be replaced.'))
+                if previous.structured_checksum and self.structured_file:
+                    if previous.structured_checksum != self._checksum_field(self.structured_file):
+                        raise ValidationError(_('Immutable structured e-invoice files cannot be replaced.'))
+
+        if self.file:
+            if not self.original_filename:
+                self.original_filename = self.file.name.rsplit('/', 1)[-1]
+            if hasattr(self.file, 'content_type') and self.file.content_type:
+                self.content_mime_type = self.file.content_type
+            if not self.checksum:
+                self.checksum = self._checksum_field(self.file)
+        if self.structured_file and not self.structured_checksum:
+            self.structured_checksum = self._checksum_field(self.structured_file)
+
         super().save(*args, **kwargs)
+
+        if not self.retain_until:
+            retain_until = assign_retain_until(self)
+            SupportingDocumentModel.objects.filter(pk=self.pk).update(retain_until=retain_until)
+            self.retain_until = retain_until
 
     def delete(self, *args, **kwargs):
         if self.immutable:
             raise ValidationError(_('Immutable supporting documents cannot be deleted.'))
+        if self.retain_until and self.retain_until > date.today():
+            raise ValidationError(
+                _('This Beleg is still within the configured retention period (until %(date)s).'),
+                params={'date': self.retain_until.isoformat()},
+            )
         return super().delete(*args, **kwargs)
+
+
+class BackupVerificationLog(CreateUpdateMixIn):
+    """
+    Record that backups were tested and stored off-site (GoBD retention / availability).
+    """
+
+    uuid = models.UUIDField(default=uuid4, editable=False, primary_key=True)
+    entity = models.ForeignKey(
+        'django_ledger.EntityModel',
+        on_delete=models.CASCADE,
+        related_name='backup_verification_logs',
+        null=True,
+        blank=True,
+        help_text=_('Optional — leave blank for whole-system backup notes.'),
+    )
+    verified_at = models.DateField()
+    storage_location = models.CharField(
+        max_length=255,
+        help_text=_('Second location or provider (e.g. S3 bucket, off-site copy).'),
+    )
+    restore_tested = models.BooleanField(
+        default=False,
+        help_text=_('True if a restore or spot-check was performed, not only backup creation.'),
+    )
+    notes = models.TextField(blank=True, default='')
+
+    class Meta:
+        verbose_name = _('Backup verification log')
+        ordering = ('-verified_at',)
+
+    def __str__(self) -> str:
+        return f'BackupVerification<{self.verified_at}:{self.storage_location}>'
 
 
 def document_inbox_upload_to(instance, filename: str) -> str:
     return f'django_ledger/document_inbox/{instance.uuid}/{filename}'
+
+
+def document_inbox_structured_upload_to(instance, filename: str) -> str:
+    return f'django_ledger/document_inbox/{instance.uuid}/structured/{filename}'
 
 
 class DocumentInboxItem(CreateUpdateMixIn):
@@ -192,7 +317,20 @@ class DocumentInboxItem(CreateUpdateMixIn):
         related_name='document_inbox_items',
     )
     file = models.FileField(upload_to=document_inbox_upload_to, storage=get_beleg_storage, max_length=512)
+    structured_file = models.FileField(
+        upload_to=document_inbox_structured_upload_to,
+        storage=get_beleg_storage,
+        max_length=512,
+        blank=True,
+    )
     source = models.CharField(max_length=32, choices=Source.choices, default=Source.UPLOAD)
+    capture_method = models.CharField(
+        max_length=32,
+        choices=BelegCaptureMethod.choices,
+        blank=True,
+        default='',
+        help_text=_('Leave blank to infer from Source (camera → photo, email → email, …).'),
+    )
     status = models.CharField(max_length=32, choices=Status.choices, default=Status.UNLINKED)
     document_type = models.CharField(
         max_length=32,
@@ -212,6 +350,7 @@ class DocumentInboxItem(CreateUpdateMixIn):
     )
     external_id = models.CharField(max_length=255, blank=True, default='')
     checksum = models.CharField(max_length=64, blank=True, default='')
+    structured_checksum = models.CharField(max_length=64, blank=True, default='')
     linked_content_type = models.ForeignKey(
         ContentType,
         on_delete=models.SET_NULL,
@@ -242,12 +381,30 @@ class DocumentInboxItem(CreateUpdateMixIn):
         return f'Inbox<{self.uuid}:{self.status}>'
 
     def save(self, *args, **kwargs):
+        if not self.capture_method:
+            self.capture_method = self.default_capture_method_for_source(self.source)
         if self.file and not self.checksum:
             hasher = hashlib.sha256()
             for chunk in self.file.chunks():
                 hasher.update(chunk)
             self.checksum = hasher.hexdigest()
+        if self.structured_file and not self.structured_checksum:
+            hasher = hashlib.sha256()
+            for chunk in self.structured_file.chunks():
+                hasher.update(chunk)
+            self.structured_checksum = hasher.hexdigest()
         super().save(*args, **kwargs)
+
+    @classmethod
+    def default_capture_method_for_source(cls, source: str) -> str:
+        mapping = {
+            cls.Source.CAMERA: BelegCaptureMethod.PHOTO,
+            cls.Source.EMAIL: BelegCaptureMethod.EMAIL,
+            cls.Source.API: BelegCaptureMethod.API,
+            cls.Source.WEBHOOK: BelegCaptureMethod.API,
+            cls.Source.UPLOAD: BelegCaptureMethod.FILE_UPLOAD,
+        }
+        return mapping.get(source, BelegCaptureMethod.FILE_UPLOAD)
 
 
 class ExternalPaymentRecord(CreateUpdateMixIn):
@@ -467,3 +624,51 @@ class ItemTranslationModel(CreateUpdateMixIn):
 
     def __str__(self) -> str:
         return f'{self.item_id}[{self.locale}]={self.name}'
+
+
+class AccountingAuditLog(models.Model):
+    """
+    Append-only audit trail for GoBD-style traceability (who / what / when).
+    """
+
+    class Action(models.TextChoices):
+        JOURNAL_ENTRY_POSTED = 'je_posted', _('Journal entry posted')
+        JOURNAL_ENTRY_UNPOSTED = 'je_unposted', _('Journal entry unposted')
+        ACCOUNT_CREATED = 'account_created', _('Account created')
+        ACCOUNT_UPDATED = 'account_updated', _('Account updated')
+
+    uuid = models.UUIDField(default=uuid4, editable=False, primary_key=True)
+    entity = models.ForeignKey(
+        'django_ledger.EntityModel',
+        on_delete=models.CASCADE,
+        related_name='accounting_audit_logs',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='accounting_audit_logs',
+    )
+    action = models.CharField(max_length=32, choices=Action.choices)
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    object_id = models.UUIDField(null=True, blank=True)
+    summary = models.CharField(max_length=512)
+    details = models.JSONField(default=dict, blank=True)
+    created = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _('Accounting audit log')
+        verbose_name_plural = _('Accounting audit logs')
+        ordering = ('-created',)
+        indexes = [
+            models.Index(fields=['entity', 'action', '-created']),
+        ]
+
+    def __str__(self) -> str:
+        return f'{self.get_action_display()} @ {self.created:%Y-%m-%d %H:%M}'

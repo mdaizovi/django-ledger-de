@@ -589,6 +589,168 @@ Accreditation fee
    Debit   4390 10  Gebühren                150.00
    Credit  1200 00  Bank                     150.00
 
+Verfahrensdokumentation (process documentation)
+-----------------------------------------------
+
+GoBD requires **Anwender-, System-, and Organisationsdokumentation** (dated, versioned).
+Use the template in :doc:`verfahrensdokumentation` and refresh it when you deploy a new
+fork version or change hosting/backups.
+
+.. code-block:: bash
+
+   python manage.py build_verfahrensdokumentation_context --output=./verfahrensdokumentation-context.json
+
+Merge that JSON with your filled-in RST/PDF and store both with your company records.
+
+GoBD-style immutability (Germany defaults)
+------------------------------------------
+
+When ``DJANGO_LEDGER_COUNTRY = 'de'`` the fork defaults to stricter posting rules:
+
+- Posted journal entries **cannot be un-posted or edited** (``ALLOW_JOURNAL_ENTRY_UNPOST`` /
+  ``ALLOW_EDIT_POSTED_JOURNAL_ENTRY`` default to ``False``). Correct mistakes with a
+  **new** booking or document void/reversal workflow — not by editing posted rows.
+- Journal entries are **locked automatically when posted** (``LOCK_JOURNAL_ENTRY_ON_POST``).
+- An append-only **Accounting audit log** records posting and chart-of-accounts changes
+  (view in Django admin). Dev-only override: set
+  ``DJANGO_LEDGER_DE_ALLOW_JOURNAL_ENTRY_UNPOST = True`` (not for production).
+
+Structure and auditability (audit export package)
+-------------------------------------------------
+
+GoBD expects a documented chart of accounts, **journal and account views**, reproducible
+**period reports**, and **machine-readable exports** for auditors.
+
+**In the ledger UI (django-ledger core):** journal entry list (chronological), account
+transaction views, balance sheet and income statement for a chosen date range.
+
+**Audit package (fork)** — one folder per period with manifest and checksums:
+
+.. code-block:: bash
+
+   python manage.py export_audit_package --entity=your-entity-slug --year=2026
+   python manage.py export_audit_package --entity=your-entity-slug --year=2026 --month=3
+
+Writes ``audit-package-<slug>-YYYY/`` (or ``-YYYY-MM/``) containing:
+
+- ``manifest.json`` — entity, period, file list with SHA-256 hashes
+- ``chart_of_accounts.csv`` / ``.json`` — full SKR/chart documentation
+- ``journal_chronological.csv`` / ``.json`` — posted lines by date
+- ``account_ledger.csv`` — same data sorted by account (account view)
+- ``trial_balance.json`` — account balances for the period
+- ``financial_statements.json`` — balance sheet (period-end) + income statement
+- ``open_items.json`` — open invoices and approved unpaid bills
+
+Re-export the same period later; posted figures should match. Use alongside
+``export_steuerberater`` for advisor handoff.
+
+Data access for auditors (DATEV-oriented export)
+------------------------------------------------
+
+GoBD / Betriebsprüfung: provide **machine-readable data on medium** with a **description file**.
+
+.. code-block:: bash
+
+   python manage.py export_auditor_access --entity=your-entity-slug --year=2026
+   python manage.py export_auditor_access --entity=your-entity-slug --year=2026 --month=3
+
+Creates ``auditor-access-<slug>-YYYY/`` with:
+
+- ``datenbeschreibung.json`` — German column meanings, encoding, DATEV import notes
+- ``datev_buchungsstapel.csv`` — semicolon-separated, German decimal comma (DATEV import assistant)
+- ``buchungen_doppelt.csv`` — full double-entry export (comma-separated)
+- ``konten.csv`` — SKR03 chart
+- ``belege.csv`` — Beleg index for the period
+- ``steuerberater_bundle.json`` — same JSON as ``export_steuerberater`` (VAT summary included)
+- ``manifest.json`` — SHA-256 checksums
+
+This is **not** native DATEV EXTF; your Steuerberater should confirm import mapping.
+For complex multi-line journals, review *Gegenkonto* in DATEV or use ``buchungen_doppelt.csv``.
+
+Retention and backups (GoBD Aufbewahrung)
+-----------------------------------------
+
+GoBD expects **8 years** for Belege and **10 years** for books / bank statements (your
+Steuerberater may specify longer periods). Backups must be **available** and stored
+**off-site**; access to deletion must be controlled.
+
+**What the software does**
+
+- Each **supporting document** gets a read-only ``retain_until`` date from document type
+  and ``created`` (receipts/invoices → ``RETENTION_BELEG_YEARS``, default 8; bank
+  statements and contracts → ``RETENTION_BOOKS_YEARS``, default 10).
+- **No automatic deletion** — use ``retention_report`` to see counts still within retention
+  vs eligible for archival review after ``retain_until``.
+- **Delete guard**: non-immutable Belege cannot be deleted while ``retain_until`` is still
+  in the future (immutable Belege remain non-deletable regardless).
+- **Backup verification log** (admin or CLI) documents off-site location and whether a
+  restore test was done.
+- ``accounting_health_check`` warns if no verification was logged within
+  ``BACKUP_VERIFICATION_MAX_AGE_DAYS`` (default 90).
+
+.. code-block:: bash
+
+   python manage.py retention_report --entity=your-entity-slug
+   python manage.py retention_report --entity=your-entity-slug --json
+   python manage.py log_backup_verification --verified-at=2026-10-01 \
+     --storage-location="S3 eu-central-1 / off-site copy" --restore-tested
+
+**Still your process**
+
+- Database and file storage **backup schedule**, encryption, and **second location** are
+  hosting/ops (document in Verfahrensdokumentation).
+- Legal holds, tax audits, or longer statutory periods may require keeping Belege longer
+  than ``retain_until`` — treat the field as earliest review date, not “safe to destroy”.
+
+Completeness and timeliness (health check)
+------------------------------------------
+
+GoBD expects bookings **promptly** (often cited: ~10 days for general items, **cash/bank daily**)
+and books **reconcilable** to bank statements without unexplained numbering gaps.
+
+Run regularly (cron or monthly):
+
+.. code-block:: bash
+
+   python manage.py accounting_health_check --entity=your-entity-slug
+   python manage.py accounting_health_check --entity=your-entity-slug --json
+
+New checks (configurable via ``DJANGO_LEDGER_HEALTH_CHECK_*`` settings):
+
+- **unposted_journal_entries_overdue** — draft JEs past ``HEALTH_CHECK_BOOKING_TIMELINESS_DAYS`` (default 10)
+- **unposted_cash_entries_overdue** — unposted JEs touching bank/cash (``1200*`` / cash role), default 1 day
+- **stale_unmatched_bank_lines** — imported bank lines not booked/matched within ``HEALTH_CHECK_BANK_LINE_DAYS``
+- **journal_entry_number_gaps** — missing numbers in posted JE sequences for the check year
+- **backup_verification_stale** — no ``BackupVerificationLog`` within ``BACKUP_VERIFICATION_MAX_AGE_DAYS``
+- Existing: draft invoices, inbox, webapp↔bank match, approved unpaid bills
+
+Use ``match_bank_payments`` and bank import commit workflow to clear bank warnings.
+
+Belegprinzip (supporting documents and capture)
+-----------------------------------------------
+
+GoBD expects every booking to trace back to an **unaltered** Beleg and to document
+**how** it was captured.
+
+**What the software stores**
+
+- **Supporting documents** on invoices, bills, and journal entries (SHA-256 checksum,
+  original filename, MIME type). Files are not replaced after posting (immutable flag).
+- **Capture method** on each Beleg: scan, photo, upload, email, API, or structured
+  e-invoice — set in admin when uploading or inferred from inbox **Source** (camera → photo).
+- **Incoming e-invoices**: choose document type **Incoming e-invoice** and attach the
+  **structured XML** (XRechnung/ZUGFeRD) in **Structured file**, plus a PDF/image in
+  **File** when you have a human-readable copy.
+- **Document inbox** can hold the structured file until you link the Beleg to a bill/JE.
+- **Lookup**: ``supporting_documents_for(bill_or_je)`` in Python; Steuerberater export
+  ``beleg_index`` includes checksums, capture method, and structured file paths.
+
+**Still your process / not automatic**
+
+- Peppol/e-invoice **reception** pipeline (automatic XML ingest) is not included — upload XML manually or via your own integration.
+- Outgoing customer invoices as XRechnung are not generated here.
+- Ledger UI does not yet show a Beleg panel on every bill screen (use admin or export).
+
 Supporting documents (Belegpflicht)
 -----------------------------------
 
@@ -1270,6 +1432,24 @@ Management commands reference
 ``export_steuerberater``
    JSON + CSV bundle for Steuerberater handoff.
 
+``export_audit_package``
+   GoBD audit folder: chart of accounts, journal, account ledger, trial balance,
+   financial statements, open items (manifest + SHA-256).
+
+``export_auditor_access``
+   Auditor / Steuerberater ZIP folder: DATEV Buchungsstapel CSV, datenbeschreibung.json,
+   Konten, Belege, double-entry CSV, Steuerberater JSON.
+
+``retention_report``
+   Count supporting documents within retention vs eligible for archival review; shows latest
+   backup verification (no deletes).
+
+``log_backup_verification``
+   Append an off-site backup / restore-test log entry for GoBD documentation.
+
+``build_verfahrensdokumentation_context``
+   JSON snapshot (software version, GoBD controls/settings) for Verfahrensdokumentation.
+
 Settings reference
 ------------------
 
@@ -1334,6 +1514,15 @@ default). See :doc:`regional` for resolution order.
    * - ``DJANGO_LEDGER_HEALTH_CHECK_STALE_DRAFT_DAYS``
      - ``14``
      - Flag draft invoices older than N days
+   * - ``DJANGO_LEDGER_HEALTH_CHECK_BOOKING_TIMELINESS_DAYS``
+     - ``10``
+     - Warn on unposted JEs older than N days (document date)
+   * - ``DJANGO_LEDGER_HEALTH_CHECK_CASH_TIMELINESS_DAYS``
+     - ``1``
+     - Error on unposted bank/cash JEs older than N days
+   * - ``DJANGO_LEDGER_HEALTH_CHECK_BANK_LINE_DAYS``
+     - ``10``
+     - Warn on bank import lines not matched/booked within N days
    * - ``DJANGO_LEDGER_BANK_MATCH_AMOUNT_TOLERANCE``
      - ``0.01``
      - Bank line vs payment amount tolerance (€)

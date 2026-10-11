@@ -4,7 +4,7 @@ Beleg inbox and supporting-document linking services.
 from __future__ import annotations
 
 import hashlib
-from datetime import date
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Any, Iterable, Optional, Union
 
@@ -13,11 +13,17 @@ from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
+from django.utils.timezone import make_aware
 from django.utils.translation import gettext_lazy as _
 
+from django_ledger.io import roles
 from django_ledger.models.utils import lazy_loader
 
-from django_ledger_extensions.models import DocumentInboxItem, SupportingDocumentModel
+from django_ledger_extensions.models import (
+    BelegCaptureMethod,
+    DocumentInboxItem,
+    SupportingDocumentModel,
+)
 
 
 def _checksum_file(file_obj) -> str:
@@ -32,6 +38,8 @@ def create_inbox_item(
     file,
     *,
     source: str = DocumentInboxItem.Source.UPLOAD,
+    capture_method: str = '',
+    structured_file=None,
     document_type: str = SupportingDocumentModel.DocumentType.RECEIPT,
     description: str = '',
     vendor_name: str = '',
@@ -54,7 +62,9 @@ def create_inbox_item(
     return DocumentInboxItem.objects.create(
         entity=entity,
         file=file,
+        structured_file=structured_file,
         source=source,
+        capture_method=capture_method,
         document_type=document_type,
         description=description,
         vendor_name=vendor_name,
@@ -73,13 +83,23 @@ def attach_supporting_document(
     *,
     document_type: str = SupportingDocumentModel.DocumentType.RECEIPT,
     description: str = '',
+    capture_method: str = BelegCaptureMethod.FILE_UPLOAD,
+    structured_file=None,
 ) -> SupportingDocumentModel:
     return SupportingDocumentModel.objects.create(
         content_object=target,
         file=file,
+        structured_file=structured_file,
         document_type=document_type,
         description=description,
+        capture_method=capture_method,
     )
+
+
+def supporting_documents_for(target):
+    """Belege linked to a ledger object (booking → documents)."""
+    ct = ContentType.objects.get_for_model(target)
+    return SupportingDocumentModel.objects.filter(content_type=ct, object_id=target.pk).order_by('created')
 
 
 def _copy_file_to_supporting_document(inbox_item: DocumentInboxItem, target) -> SupportingDocumentModel:
@@ -94,9 +114,22 @@ def _copy_file_to_supporting_document(inbox_item: DocumentInboxItem, target) -> 
         object_id=target.pk,
         document_type=inbox_item.document_type,
         description=inbox_item.description,
+        capture_method=inbox_item.capture_method or DocumentInboxItem.default_capture_method_for_source(
+            inbox_item.source
+        ),
         checksum=inbox_item.checksum or _checksum_file(ContentFile(content)),
+        structured_checksum=inbox_item.structured_checksum,
     )
-    doc.file.save(filename, ContentFile(content), save=True)
+    doc.file.save(filename, ContentFile(content), save=False)
+    if inbox_item.structured_file:
+        structured_name = inbox_item.structured_file.name.rsplit('/', 1)[-1]
+        inbox_item.structured_file.open('rb')
+        try:
+            structured_content = inbox_item.structured_file.read()
+        finally:
+            inbox_item.structured_file.close()
+        doc.structured_file.save(structured_name, ContentFile(structured_content), save=False)
+    doc.save()
     return doc
 
 
@@ -192,9 +225,6 @@ def create_quick_expense(
 
     Returns (journal_entry, supporting_document_or_none).
     """
-    from django.utils.timezone import make_aware
-    from datetime import datetime, time
-
     TransactionModel = lazy_loader.get_txs_model()
     JournalEntryModel = lazy_loader.get_journal_entry_model()
     LedgerModel = lazy_loader.get_ledger_model()
@@ -202,8 +232,6 @@ def create_quick_expense(
     if credit_account is None:
         credit_account = entity.default_coa.accountmodel_set.filter(code='1200 00', active=True).first()
         if credit_account is None:
-            from django_ledger.io import roles
-
             credit_account = (
                 entity.get_coa_accounts(active=True)
                 .with_roles([roles.ASSET_CA_CASH])

@@ -9,6 +9,7 @@ class DjangoLedgerExtensionsConfig(AppConfig):
 
     def ready(self):
         import django_ledger_extensions.signals  # noqa: F401
+        import django_ledger_extensions.gobd_signals  # noqa: F401
 
         from django.conf import settings
         from django.core.exceptions import ImproperlyConfigured

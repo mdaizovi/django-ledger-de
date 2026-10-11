@@ -21,6 +21,7 @@ Created and developed by `Miguel Sanda <https://www.miguelsanda.com>`_.
    ./models
    ./regional
    ./de_school_howto
+   ./verfahrensdokumentation
 
 
 

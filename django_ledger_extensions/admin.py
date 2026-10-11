@@ -7,8 +7,10 @@ from django_ledger_extensions.admin_forms import DocumentInboxItemAdminForm, Sup
 from django_ledger_extensions.documents import link_inbox_item_to_object
 from django_ledger_extensions.models import (
     AccountTranslationModel,
+    AccountingAuditLog,
     AccountingReminderLog,
     AccountingReminderRule,
+    BackupVerificationLog,
     DocumentInboxItem,
     EntityTaxProfile,
     ExternalPaymentRecord,
@@ -85,8 +87,16 @@ class EntityTaxProfileAdmin(admin.ModelAdmin):
 @admin.register(SupportingDocumentModel)
 class SupportingDocumentAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
     form = SupportingDocumentAdminForm
-    list_display = ('uuid', 'document_type', 'linked_object_display', 'immutable', 'created')
-    list_filter = ('document_type', 'immutable')
+    list_display = (
+        'uuid',
+        'document_type',
+        'capture_method',
+        'linked_object_display',
+        'immutable',
+        'retain_until',
+        'created',
+    )
+    list_filter = ('document_type', 'capture_method', 'immutable')
     search_fields = ('description', 'object_id')
     readonly_fields = (
         'linked_object_display',
@@ -94,6 +104,7 @@ class SupportingDocumentAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
         'object_id_display',
         'checksum_display',
         'immutable_display',
+        'retain_until',
         'created_display',
         'updated_display',
     )
@@ -119,7 +130,9 @@ class SupportingDocumentAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
                             'link_bill',
                             'link_journal_entry',
                             'file',
+                            'structured_file',
                             'document_type',
+                            'capture_method',
                             'description',
                         ),
                     },
@@ -134,10 +147,16 @@ class SupportingDocumentAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
                         'content_type_display',
                         'object_id_display',
                         'file',
+                        'structured_file',
                         'document_type',
+                        'capture_method',
+                        'original_filename',
+                        'content_mime_type',
                         'description',
                         'checksum_display',
+                        'structured_checksum_display',
                         'immutable_display',
+                        'retain_until',
                         'created_display',
                         'updated_display',
                     ),
@@ -148,7 +167,15 @@ class SupportingDocumentAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
         if obj is not None:
-            readonly.extend(['file', 'document_type', 'description'])
+            readonly.extend([
+                'file',
+                'structured_file',
+                'document_type',
+                'capture_method',
+                'description',
+                'original_filename',
+                'content_mime_type',
+            ])
             if obj.immutable:
                 return readonly
         return readonly
@@ -177,6 +204,10 @@ class SupportingDocumentAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
     def checksum_display(self, obj: SupportingDocumentModel) -> str:
         return obj.checksum or '—'
 
+    @admin.display(description=_('Structured checksum'))
+    def structured_checksum_display(self, obj: SupportingDocumentModel) -> str:
+        return obj.structured_checksum or '—'
+
     @admin.display(description=_('Immutable'), boolean=True)
     def immutable_display(self, obj: SupportingDocumentModel) -> bool:
         return obj.immutable
@@ -202,11 +233,13 @@ class DocumentInboxItemAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
         'suggested_amount',
         'suggested_date',
         'document_type',
+        'capture_method',
     )
-    list_filter = ('status', 'source', 'document_type', 'entity')
+    list_filter = ('status', 'source', 'document_type', 'capture_method', 'entity')
     search_fields = ('description', 'vendor_name', 'reference', 'external_id')
     readonly_fields = (
         'checksum',
+        'structured_checksum',
         'linked_target_display',
         'linked_content_type',
         'linked_object_id',
@@ -226,7 +259,9 @@ class DocumentInboxItemAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
                 'fields': (
                     'entity',
                     'file',
+                    'structured_file',
                     'source',
+                    'capture_method',
                     'status',
                     'document_type',
                     'description',
@@ -297,6 +332,41 @@ class DocumentInboxItemAdmin(BelegLinkAdminMixin, admin.ModelAdmin):
             _('Beleg linked to %(target)s (supporting document %(doc)s).')
             % {'target': target, 'doc': doc.uuid},
         )
+
+
+@admin.register(AccountingAuditLog)
+class AccountingAuditLogAdmin(admin.ModelAdmin):
+    list_display = ('created', 'entity', 'action', 'summary', 'user')
+    list_filter = ('action', 'entity')
+    search_fields = ('summary', 'object_id')
+    readonly_fields = (
+        'entity',
+        'user',
+        'action',
+        'content_type',
+        'object_id',
+        'summary',
+        'details',
+        'created',
+    )
+    ordering = ('-created',)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(BackupVerificationLog)
+class BackupVerificationLogAdmin(admin.ModelAdmin):
+    list_display = ('verified_at', 'entity', 'storage_location', 'restore_tested', 'created')
+    list_filter = ('restore_tested', 'entity')
+    search_fields = ('storage_location', 'notes')
+    date_hierarchy = 'verified_at'
 
 
 @admin.register(ExternalPaymentRecord)

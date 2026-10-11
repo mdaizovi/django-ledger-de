@@ -85,5 +85,11 @@ class GermanyRegionalPlugin(RegionalPlugin):
     def on_journal_entry_posted(self, journal_entry, *, committed: bool = True) -> None:
         return
 
+    def allow_journal_entry_unpost(self, journal_entry) -> bool:
+        return bool(get_ledger_setting('ALLOW_JOURNAL_ENTRY_UNPOST'))
+
+    def allow_edit_posted_journal_entry(self, journal_entry) -> bool:
+        return bool(get_ledger_setting('ALLOW_EDIT_POSTED_JOURNAL_ENTRY'))
+
     def get_invoice_legal_notice(self, entity) -> str:
         return vat_module.default_invoice_legal_notice_for_entity(entity)
